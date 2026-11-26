@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>NimbleBrainInc/renovate-config"
+  ],
+  "description": "Two managers: the Python service (pyproject.toml and uv.lock, on the preset's release wait) and the Dockerfile's digest-pinned images.",
+  "enabledManagers": [
+    "pep621",
+    "dockerfile"
+  ],
+  "packageRules": [
+    {
+      "description": "No release wait for the Dockerfile's images: GHCR publishes no release timestamps, so the wait would hold uv updates forever.",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "nimblebrain-server-sdk is NimbleBrain's own package, and a v0.x minor may break the API: a bump is a deliberate, reviewed change.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "nimblebrain-server-sdk"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "One PR a week for Python minors and patches; a major still waits for dashboard approval on its own.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "python dependencies",
+      "matchPackageNames": [
+        "!nimblebrain-server-sdk"
+      ]
+    }
+  ]
+}

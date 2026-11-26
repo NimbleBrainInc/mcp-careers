@@ -1,0 +1,117 @@
+{
+  "instructions": "Helps a person apply for a job at NimbleBrain. Read the skill://apply-to-nimblebrain/SKILL.md resource before calling a tool.",
+  "prompts": [],
+  "resource_templates": [],
+  "resources": [
+    {
+      "mimeType": "text/markdown",
+      "sha256": "3ff34ac1b250efae6898196a8783b7850234deebb3156e2f9992a3127f739ced",
+      "uri": "skill://apply-to-nimblebrain/SKILL.md"
+    },
+    {
+      "mimeType": "text/markdown",
+      "sha256": "3fbbabc0308708162d5e33f1c774a79e5fa1d519eaf87cccad0ed92e6143abc8",
+      "uri": "skill://apply-to-nimblebrain/challenge.md"
+    }
+  ],
+  "server_card": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+    "description": "Apply to NimbleBrain through your agent: read the challenge and send your work.",
+    "name": "ai.nimblebrain/careers",
+    "title": "NimbleBrain Careers",
+    "websiteUrl": "https://nimblebrain.ai/careers"
+  },
+  "tools": [
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "description": "Get NimbleBrain's open roles, the hiring challenge, and what an application needs.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain\nis hiring for, before helping them with the challenge or calling\ncareers_submit_application. The result holds who NimbleBrain is, each open role (id,\ntitle, location, pay range, summary), the challenge brief in Markdown, and the fields and\nlimits a submission must meet. An unknown `role` is refused with the list of open role ids.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A role `id` from a previous call, to confirm it is open. Omit it to get every open role."
+          }
+        },
+        "type": "object"
+      },
+      "name": "careers_get_challenge",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Careers Get Challenge"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Send a NimbleBrain job application for the person to confirm.\n\nCall this only after the person has reviewed the finished skill and their own note and\nhas said to send it. It checks every field and either refuses with a list of what to fix\n(`bad_input`), or holds the application and returns a `confirm_url`. Nothing reaches\nNimbleBrain until the person opens that link within an hour and confirms, so always give\nthem the link. One application per email address every 60 days (`conflict`).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "The applicant's email address; NimbleBrain replies here.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The applicant's name, one line.",
+            "type": "string"
+          },
+          "note": {
+            "description": "50 to 300 words written by the applicant, not the agent: what the agent got wrong while building the skill, how they caught it, and what they would change.",
+            "type": "string"
+          },
+          "resume_url": {
+            "description": "An https link to the applicant's resume, a document, or a profile page.",
+            "type": "string"
+          },
+          "role": {
+            "description": "The `id` of an open role, from careers_get_challenge.",
+            "type": "string"
+          },
+          "skill": {
+            "description": "The whole SKILL.md the applicant built, starting with YAML frontmatter that has `name` and `description`. At most 20,000 characters.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "name",
+          "email",
+          "resume_url",
+          "skill",
+          "note"
+        ],
+        "type": "object"
+      },
+      "name": "careers_submit_application",
+      "outputSchema": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Careers Submit Application"
+    }
+  ]
+}

@@ -1,17 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "com.example/example",
-  "title": "Example",
-  "description": "List and read items from the Example API.",
+  "name": "ai.nimblebrain/careers",
+  "title": "NimbleBrain Careers",
+  "description": "Apply to NimbleBrain through your agent: read the challenge and send your work.",
   "version": "0.1.0",
+  "websiteUrl": "https://nimblebrain.ai/careers",
   "repository": {
-    "url": "https://github.com/NimbleBrainInc/mcp-example",
+    "url": "https://github.com/NimbleBrainInc/mcp-careers",
     "source": "github"
   },
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.example.com/mcp"
+      "url": "https://careers.nimblebrain.ai/mcp"
     }
   ]
 }

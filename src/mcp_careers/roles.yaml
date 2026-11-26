@@ -1,0 +1,12 @@
+# The open roles. `environments` names where a role shows (CAREERS_ENV), so a test role
+# never reaches production. The skill's brief, careers_get_challenge and the careers page
+# all read this file.
+roles:
+  - id: test-agent-engineer
+    title: Agent Engineer (test)
+    location: Remote
+    pay_range: "$0 (test listing)"
+    summary: >-
+      A test listing for checking the application flow end to end. Build MCP servers and
+      skills that agents use well, and help customers run their business on them.
+    environments: [development, staging]
