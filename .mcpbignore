@@ -1,0 +1,46 @@
+# mcpb pack loads this file and treats each pattern as gitignore-style.
+# Gitignore rule that bites: a pattern without a leading `/` matches
+# anywhere in the tree, including inside `deps/`. Unanchored `conftest.py`
+# or `tests/` happily strips vendored `deps/<pkg>/.../conftest.py` and
+# breaks imports at runtime. Anchor project-only patterns with `/`.
+
+# ── Strip anywhere (generated/OS cruft — safe to remove from deps/) ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyi
+.DS_Store
+*.mcpb
+
+# ── Project-only (anchored) ──
+/.venv/
+/.git/
+/.github/
+/.claude/
+/.vscode/
+/.idea/
+/.env
+/.env.*
+/.python-version
+/.pytest_cache/
+/.ruff_cache/
+/.ty_cache/
+/.mypy_cache/
+/.coverage
+/build/
+/dist/
+/tests/
+/tests-integration/
+/test/
+/e2e/
+/examples/
+/docs/
+/doc/
+/scripts/
+/htmlcov/
+/Makefile
+/Dockerfile
+/pytest.ini
+/uv.lock
+/CLAUDE.md
+/CONTRIBUTING.md
