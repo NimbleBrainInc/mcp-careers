@@ -1,6 +1,6 @@
 """The NimbleBrain careers MCP server.
 
-An applicant's agent reads the challenge and submits an application; the person then opens
+An applicant's agent reads the open roles and submits an application; the person then opens
 a confirmation link and passes a Turnstile check, and only then does the application reach
 the team's Slack channel. Nothing is stored beyond expiring keys in Redis.
 """
@@ -9,7 +9,7 @@ import logging
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Literal
 from urllib.parse import parse_qs
 
 from fastmcp import FastMCP
@@ -22,17 +22,17 @@ from nimblebrain_server_sdk import (
     add_skills,
 )
 from nimblebrain_server_sdk.errors import ErrorCode, ServiceError
-from pydantic import Field
+from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 from mcp_careers import __version__, config, outbound
-from mcp_careers.pages import confirm_page, message_page
+from mcp_careers.pages import FALLBACK_EMAIL, confirm_page, message_page
 from mcp_careers.roles import Role, load_roles
 from mcp_careers.store import Store
-from mcp_careers.submission import Submission, normalized, problems
+from mcp_careers.submission import MAX_NOTE_WORDS, Application, normalized, problems
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,9 +41,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mcp_careers")
 
-SKILLS_DIR = Path(__file__).parent / "skills"
-SKILL_DIR = SKILLS_DIR / "apply-to-nimblebrain"
-CHALLENGE = (SKILL_DIR / "challenge.md").read_text()
+SKILL_DIR = Path(__file__).parent / "skills" / "apply-to-nimblebrain"
 
 ABOUT = (
     "NimbleBrain is an open-source platform for running your business on AI. Everything is "
@@ -51,11 +49,11 @@ ABOUT = (
     "automations) and 1,000+ connectors, on any model, in your own infrastructure. Our team "
     "sets it up and runs it with you, or you run it yourself."
 )
-FALLBACK = "Email careers@nimblebrain.ai with a resume and a link to your work."
+FALLBACK = f"Email {FALLBACK_EMAIL} with a resume or a profile link."
 
 # The Server Card's title and description, restated in server.json (a test holds them equal).
 TITLE = "NimbleBrain Careers"
-DESCRIPTION = "Apply to NimbleBrain through your agent: read the challenge and send your work."
+DESCRIPTION = "Apply to NimbleBrain through your agent: see the open roles and send your resume."
 
 mcp = FastMCP(
     "ai.nimblebrain/careers",
@@ -145,99 +143,119 @@ async def health_check(request: Request) -> JSONResponse:
 
 
 # ============================================================================
+# Results
+# ============================================================================
+
+
+class OpenRole(BaseModel):
+    id: str = Field(description="Pass this as `role` to careers_submit_application.")
+    title: str
+    location: str
+    pay_range: str
+    summary: str
+
+
+class RolesResult(BaseModel):
+    about: str = Field(description="Who NimbleBrain is, in NimbleBrain's own words.")
+    roles: list[OpenRole] = Field(description="The open roles. Empty when none are open.")
+    how_to_apply: str = Field(description="What an application needs and what happens after.")
+    other_way_to_apply: str = Field(description="For a person who would rather not use an agent.")
+
+
+class SubmitResult(BaseModel):
+    status: Literal["awaiting_confirmation"]
+    confirm_url: str = Field(
+        description="Give this to the person; nothing is sent until they open it."
+    )
+    expires_in_minutes: int
+    next_step: str
+
+
+HOW_TO_APPLY = (
+    "Call careers_submit_application with the role id, the person's name and email, and an "
+    "https link to their resume or a profile (such as LinkedIn) that opens without signing in. "
+    "Optionally add `link`, something they have built with agents, and `note`, up to "
+    f"{MAX_NOTE_WORDS} words in their own words. The result holds a confirm_url: the person "
+    "opens it, passes a quick human check, and only then is the application sent. One "
+    "application per email address every 60 days."
+)
+
+
+# ============================================================================
 # Tools
 # ============================================================================
 
 
-@mcp.tool(annotations=READS)
-async def careers_get_challenge(
-    role: Annotated[
-        str | None,
-        Field(
-            description=(
-                "A role `id` from a previous call, to confirm it is open. Omit it to get "
-                "every open role."
-            )
-        ),
-    ] = None,
-) -> dict[str, Any]:
-    """Get NimbleBrain's open roles, the hiring challenge, and what an application needs.
+@mcp.tool(
+    title="List NimbleBrain's open roles",
+    annotations=READS.model_copy(update={"idempotent_hint": True, "open_world_hint": False}),
+)
+async def careers_list_roles() -> RolesResult:
+    """List NimbleBrain's open roles and how to apply.
 
-    Call this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain
-    is hiring for, before helping them with the challenge or calling
-    careers_submit_application. The result holds who NimbleBrain is, each open role (id,
-    title, location, pay range, summary), the challenge brief in Markdown, and the fields and
-    limits a submission must meet. An unknown `role` is refused with the list of open role ids.
+    Call this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is
+    hiring for, before calling careers_submit_application. It returns who NimbleBrain is, each
+    open role (id, title, location, pay range, summary), and what an application needs. When
+    no role is open, say so and offer the email address in `other_way_to_apply`.
     """
-    roles = open_roles()
-    if role is not None and role not in roles:
-        listed = ", ".join(roles) or "none right now"
-        raise ServiceError(
-            ErrorCode.BAD_INPUT, f"`role` is not an open role. Open roles: {listed}."
-        )
-    shown = [roles[role]] if role else list(roles.values())
-    logger.info("event=get_challenge role=%s", role or "-")
-    return {
-        "about": ABOUT,
-        "roles": [r.public() for r in shown],
-        "challenge": CHALLENGE,
-        "submission": {
-            "tool": "careers_submit_application",
-            "fields": {
-                "role": "an open role id",
-                "name": "the person's name, one line",
-                "email": "where we reply",
-                "resume_url": "an https link to a resume, document or profile",
-                "skill": "the whole SKILL.md, with name and description in its frontmatter",
-                "note": "50 to 300 words, written by the person",
-            },
-            "after": "The result holds a confirm_url the person must open within an hour.",
-        },
-        "other_way_to_apply": FALLBACK,
-    }
+    logger.info("event=list_roles")
+    return RolesResult(
+        about=ABOUT,
+        roles=[OpenRole(**r.public()) for r in open_roles().values()],
+        how_to_apply=HOW_TO_APPLY,
+        other_way_to_apply=FALLBACK,
+    )
 
 
-@mcp.tool(annotations=ADDS)
+@mcp.tool(
+    title="Send an application to NimbleBrain",
+    annotations=ADDS.model_copy(update={"idempotent_hint": False, "open_world_hint": False}),
+)
 async def careers_submit_application(
-    role: Annotated[
-        str, Field(description="The `id` of an open role, from careers_get_challenge.")
-    ],
-    name: Annotated[str, Field(description="The applicant's name, one line.")],
+    role: Annotated[str, Field(description="The `id` of an open role, from careers_list_roles.")],
+    name: Annotated[str, Field(description="The applicant's full name, one line.")],
     email: Annotated[
-        str, Field(description="The applicant's email address; NimbleBrain replies here.")
+        str, Field(description="The applicant's email address. NimbleBrain replies here.")
     ],
     resume_url: Annotated[
         str,
         Field(
-            description="An https link to the applicant's resume, a document, or a profile page."
-        ),
-    ],
-    skill: Annotated[
-        str,
-        Field(
             description=(
-                "The whole SKILL.md the applicant built, starting with YAML frontmatter that "
-                "has `name` and `description`. At most 20,000 characters."
+                "An https link to the applicant's resume or a profile such as LinkedIn. It "
+                "must open for someone who is not signed in: a public document, not a "
+                "private file."
             )
         ),
     ],
+    link: Annotated[
+        str,
+        Field(
+            description=(
+                "Optional. An https link to something the applicant has built with agents "
+                "(a repo, a skill, a demo). Leave empty if there is none."
+            )
+        ),
+    ] = "",
     note: Annotated[
         str,
         Field(
             description=(
-                "50 to 300 words written by the applicant, not the agent: what the agent got "
-                "wrong while building the skill, how they caught it, and what they would change."
+                f"Optional. Up to {MAX_NOTE_WORDS} words the applicant wrote themselves: why "
+                "NimbleBrain, or anything they want the team to know. Do not write one for "
+                "them. Leave empty if they have none."
             )
         ),
-    ],
-) -> dict[str, Any]:
+    ] = "",
+) -> SubmitResult:
     """Send a NimbleBrain job application for the person to confirm.
 
-    Call this only after the person has reviewed the finished skill and their own note and
-    has said to send it. It checks every field and either refuses with a list of what to fix
-    (`bad_input`), or holds the application and returns a `confirm_url`. Nothing reaches
-    NimbleBrain until the person opens that link within an hour and confirms, so always give
-    them the link. One application per email address every 60 days (`conflict`).
+    Call this only after the person has seen exactly what will be sent and said to send it.
+    Do not use it to ask questions about a role; careers_list_roles answers those. It checks
+    every field and either refuses with a list of what to fix (`bad_input`), or holds the
+    application and returns a `confirm_url`. Nothing reaches NimbleBrain until the person
+    opens that link within an hour and passes a quick human check, so always give them the
+    link. One application per email address every 60 days (`conflict`). If a required field
+    is missing, ask the person for it rather than guessing.
     """
     s = config.settings
     if not s.ready():
@@ -247,24 +265,24 @@ async def careers_submit_application(
             detail="slack webhook or turnstile keys are not configured",
         )
     store = get_store()
-    sub = normalized(
-        Submission(role=role, name=name, email=email, resume_url=resume_url, skill=skill, note=note)
+    app = normalized(
+        Application(role=role, name=name, email=email, resume_url=resume_url, link=link, note=note)
     )
     try:
         calls = await store.count_submit_call(client_ip(_current_request()))
         if calls > s.submit_limit_per_hour:
             raise ServiceError(
                 ErrorCode.RATE_LIMITED,
-                "Too many submissions from this network in the last hour. Try again in an hour.",
+                "Too many applications from this network in the last hour. Try again in an hour.",
                 retryable=True,
             )
-        found = problems(sub, set(open_roles()))
+        found = problems(app, set(open_roles()))
         if found:
             raise ServiceError(
                 ErrorCode.BAD_INPUT,
                 "Fix these, show the person, and submit again:\n- " + "\n- ".join(found),
             )
-        if await store.email_has_applied(sub.email):
+        if await store.email_has_applied(app.email):
             raise ServiceError(
                 ErrorCode.CONFLICT,
                 f"This email address has applied in the last {s.dedupe_days} days.",
@@ -275,21 +293,21 @@ async def careers_submit_application(
                 "Today's applications are full. Try again after midnight UTC.",
                 retryable=True,
             )
-        token = await store.hold(sub)
+        token = await store.hold(app)
     except RedisError as e:
         raise _store_failure(e) from e
 
-    logger.info("event=submitted role=%s", sub.role)
+    logger.info("event=submitted role=%s", app.role)
     minutes = s.pending_ttl_seconds // 60
-    return {
-        "status": "awaiting_confirmation",
-        "confirm_url": f"{s.public_url}/confirm/{token}",
-        "expires_in_minutes": minutes,
-        "next_step": (
+    return SubmitResult(
+        status="awaiting_confirmation",
+        confirm_url=f"{s.public_url}/confirm/{token}",
+        expires_in_minutes=minutes,
+        next_step=(
             f"Give the person the confirm_url and ask them to open it within {minutes} "
             "minutes. The application is sent only when they confirm on that page."
         ),
-    }
+    )
 
 
 # ============================================================================
@@ -301,13 +319,19 @@ def _html(body: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(
         body,
         status_code=status,
-        headers={"cache-control": "no-store", "referrer-policy": "no-referrer"},
+        headers={
+            "cache-control": "no-store",
+            "referrer-policy": "no-referrer",
+            "x-frame-options": "DENY",
+            "x-content-type-options": "nosniff",
+        },
     )
 
 
 GONE = (
-    "Link expired",
-    "This link has expired or was already used. Ask your agent to submit again for a new one.",
+    "This link has expired",
+    "It was already used, or it's more than an hour old. Ask your agent to submit again for a "
+    "new one.",
 )
 
 
@@ -324,60 +348,60 @@ async def confirm(request: Request) -> HTMLResponse:
 
     try:
         if request.method == "GET":
-            sub = await store.peek(token)
-            role = open_roles().get(sub.role) if sub else None
-            if sub is None or role is None:
+            app = await store.peek(token)
+            role = open_roles().get(app.role) if app else None
+            if app is None or role is None:
                 return _html(message_page(*GONE), 404)
-            return _html(confirm_page(sub, role, site_key))
+            return _html(confirm_page(app, role, site_key))
 
         claimed = await store.claim(token)
         if claimed is None:
             return _html(message_page(*GONE), 404)
-        sub, ttl = claimed
-        role = open_roles().get(sub.role)
+        app, ttl = claimed
+        role = open_roles().get(app.role)
         if role is None:
-            return _html(message_page("Role closed", "This role is no longer open."), 410)
+            return _html(message_page("This role has closed", "It's no longer open."), 410)
 
         form = parse_qs((await request.body()).decode(errors="replace"))
         answer = (form.get("cf-turnstile-response") or [""])[0]
         if not await outbound.verify_turnstile(secret, answer, client_ip(request)):
-            await store.release(token, sub, ttl)
+            await store.release(token, app, ttl)
             return _html(
                 confirm_page(
-                    sub, role, site_key, error="That check didn't pass. Please try again."
+                    app, role, site_key, error="That check didn't pass. Please try again."
                 ),
                 400,
             )
 
-        refused = await store.reserve(sub.email, s.daily_cap)
+        refused = await store.reserve(app.email, s.daily_cap)
         if refused == "duplicate":
             return _html(
                 message_page(
-                    "Already applied",
+                    "You've already applied",
                     f"This email address has applied in the last {s.dedupe_days} days.",
                 ),
                 409,
             )
         if refused == "full":
-            await store.release(token, sub, ttl)
+            await store.release(token, app, ttl)
             return _html(
                 message_page(
-                    "Full for today",
-                    "Today's applications are full. Open this link again after midnight UTC, "
-                    "or ask your agent to submit again then.",
+                    "We're full for today",
+                    "Open this link again after midnight UTC, or ask your agent to submit "
+                    "again then.",
                 ),
                 429,
             )
 
         try:
-            await outbound.post_to_slack(webhook, outbound.application_message(sub, role))
+            await outbound.post_to_slack(webhook, outbound.application_message(app, role))
         except outbound.OutboundError as e:
             logger.error("slack post failed: %s", e)
-            await store.unreserve(sub.email)
-            await store.release(token, sub, ttl)
+            await store.unreserve(app.email)
+            await store.release(token, app, ttl)
             return _html(
                 confirm_page(
-                    sub, role, site_key, error="We couldn't send it just now. Please try again."
+                    app, role, site_key, error="We couldn't send it just now. Please try again."
                 ),
                 502,
             )
@@ -387,11 +411,11 @@ async def confirm(request: Request) -> HTMLResponse:
             message_page("Something went wrong", f"Please try again shortly. {FALLBACK}"), 503
         )
 
-    logger.info("event=confirmed role=%s", sub.role)
+    logger.info("event=confirmed role=%s", app.role)
     return _html(
         message_page(
-            "You're in",
-            "Your application is with the NimbleBrain team. One of us will email you.",
+            "Your application is in",
+            "It's with the NimbleBrain team now. One of us will email you.",
         )
     )
 

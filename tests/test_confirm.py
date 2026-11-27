@@ -39,7 +39,7 @@ async def test_the_page_shows_what_is_being_sent(http) -> None:
 async def test_confirming_posts_once_and_retires_the_link(http, calls) -> None:
     path = await submit()
     done = await http.post(path, **form())
-    assert done.status_code == 200 and "application is with" in done.text
+    assert done.status_code == 200 and "with the NimbleBrain team" in done.text
     assert len(calls.posts) == 1
     again = await http.post(path, **form())
     assert again.status_code == 404

@@ -5,7 +5,7 @@ import logging
 import aiohttp
 
 from mcp_careers.roles import Role
-from mcp_careers.submission import Submission
+from mcp_careers.submission import Application
 
 logger = logging.getLogger("mcp_careers.outbound")
 
@@ -70,42 +70,33 @@ def _code_block(text: str) -> str:
     return f"```{body}```"
 
 
-def application_message(sub: Submission, role: Role) -> dict:
+def application_message(app: Application, role: Role) -> dict:
     """The Slack message for one confirmed application."""
-    name = slack_escape(sub.name)
+    name = slack_escape(app.name)
     title = slack_escape(role.title)
-    return {
-        "text": f"New application: {name}, {title}",
-        "blocks": [
-            {
-                "type": "header",
-                "text": {"type": "plain_text", "text": f"New application: {role.title}"[:150]},
-            },
-            {
-                "type": "section",
-                "fields": [
-                    {"type": "mrkdwn", "text": f"*Name*\n{name}"},
-                    {"type": "mrkdwn", "text": f"*Email*\n{slack_escape(sub.email)}"},
-                    {"type": "mrkdwn", "text": f"*Role*\n{title}"},
-                    {"type": "mrkdwn", "text": f"*Resume*\n<{slack_escape(sub.resume_url)}|open>"},
-                ],
-            },
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": APPLICANT_TEXT_NOTICE,
-                    }
-                ],
-            },
+    fields = [
+        {"type": "mrkdwn", "text": f"*Name*\n{name}"},
+        {"type": "mrkdwn", "text": f"*Email*\n{slack_escape(app.email)}"},
+        {"type": "mrkdwn", "text": f"*Role*\n{title}"},
+        {"type": "mrkdwn", "text": f"*Resume*\n<{slack_escape(app.resume_url)}|open>"},
+    ]
+    if app.link:
+        fields.append(
+            {"type": "mrkdwn", "text": f"*Built with agents*\n<{slack_escape(app.link)}|open>"}
+        )
+    blocks: list[dict] = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"New application: {role.title}"[:150]},
+        },
+        {"type": "section", "fields": fields},
+    ]
+    if app.note:
+        blocks += [
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": APPLICANT_TEXT_NOTICE}]},
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": "*Note*\n" + _code_block(sub.note)},
+                "text": {"type": "mrkdwn", "text": "*Note*\n" + _code_block(app.note)},
             },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "*Skill*\n" + _code_block(sub.skill)},
-            },
-        ],
-    }
+        ]
+    return {"text": f"New application: {name}, {title}", "blocks": blocks}

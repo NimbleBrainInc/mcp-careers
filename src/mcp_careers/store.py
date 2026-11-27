@@ -1,6 +1,6 @@
 """Everything the server keeps, in Redis, and all of it expiring.
 
-careers:pending:<token>      a submission waiting to be confirmed   (pending TTL)
+careers:pending:<token>      an application waiting to be confirmed   (pending TTL)
 careers:email:<sha256>       an email that has posted               (dedupe window)
 careers:day:<YYYY-MM-DD>     posted submissions that UTC day        (2 days)
 careers:ip:<ip>:<hour>       submit calls from one IP that hour     (2 hours)
@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 
 from redis.asyncio import Redis
 
-from mcp_careers.submission import Submission
+from mcp_careers.submission import Application
 
 PREFIX = "careers"
 
@@ -53,20 +53,20 @@ class Store:
 
     # -- pending submissions ---------------------------------------------------------
 
-    async def hold(self, sub: Submission) -> str:
-        """Keep a submission until it is confirmed or expires; returns its token."""
+    async def hold(self, sub: Application) -> str:
+        """Keep an application until it is confirmed or expires; returns its token."""
         token = secrets.token_urlsafe(32)
         await self.redis.set(
             f"{PREFIX}:pending:{token}", json.dumps(sub.to_dict()), ex=self.pending_ttl
         )
         return token
 
-    async def peek(self, token: str) -> Submission | None:
+    async def peek(self, token: str) -> Application | None:
         raw = await self.redis.get(f"{PREFIX}:pending:{token}")
-        return Submission(**json.loads(raw)) if raw else None
+        return Application(**json.loads(raw)) if raw else None
 
-    async def claim(self, token: str) -> tuple[Submission, int] | None:
-        """Take a pending submission so no second confirm can post it.
+    async def claim(self, token: str) -> tuple[Application, int] | None:
+        """Take a pending application so no second confirm can post it.
 
         Returns it with the seconds it had left, so `release` can put it back.
         """
@@ -75,10 +75,10 @@ class Store:
         raw = await self.redis.getdel(key)
         if not raw:
             return None
-        return Submission(**json.loads(raw)), max(int(ttl), 60)
+        return Application(**json.loads(raw)), max(int(ttl), 60)
 
-    async def release(self, token: str, sub: Submission, ttl: int) -> None:
-        """Put a claimed submission back, so the person can try the same link again."""
+    async def release(self, token: str, sub: Application, ttl: int) -> None:
+        """Put a claimed application back, so the person can try the same link again."""
         await self.redis.set(f"{PREFIX}:pending:{token}", json.dumps(sub.to_dict()), ex=ttl)
 
     # -- posting -------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # mcp-careers
 
-The NimbleBrain careers MCP server: an applicant's agent reads the challenge and submits;
+The NimbleBrain careers MCP server: an applicant's agent reads the open roles and submits;
 the person confirms on a page with Turnstile; the application posts to Slack. Public repo.
 
 ## Layout
@@ -15,21 +15,23 @@ src/mcp_careers/
 ├── store.py         # Redis keys, all expiring (layout in its docstring)
 ├── outbound.py      # Turnstile siteverify, the Slack webhook, the Slack message
 ├── pages.py         # the confirmation and message pages
+├── assets/          # the full logo, light and dark, from the brand source
 └── skills/apply-to-nimblebrain/
-    ├── SKILL.md     # served at skill://apply-to-nimblebrain/SKILL.md
-    └── challenge.md # the brief; careers_get_challenge returns this same file
+    └── SKILL.md     # served at skill://apply-to-nimblebrain/SKILL.md
 ```
 
 ## Rules
 
 - **Nothing posts without a person.** Only the confirmation page's POST, after Turnstile
   passes, calls Slack. The submit tool holds and returns a link; it never posts.
-- **Every field is untrusted.** Checks live in `submission.py`. Nothing in a submission is
-  fetched: `resume_url` is a link in the Slack message, never opened.
+- **Every field is untrusted.** Checks live in `submission.py`. Nothing in an application is
+  fetched: `resume_url` and `link` are links in the Slack message, never opened. The server
+  does not check that they open: LinkedIn refuses automated requests, and fetching an
+  applicant's URL from inside the cluster is a server-side request forgery risk. The skill and
+  the confirmation page ask the person to check instead.
 - **Applicant text is escaped for Slack** (`slack_escape`) and sent inside code blocks, so it
   cannot ping a channel or forge a link. Agents must not read the channel it posts to.
-- **One source per fact.** The brief is `challenge.md`, read by both the skill and the tool.
-  Roles are `roles.yaml`. The Server Card's name, version, title, description and website
+- **One source per fact.** Roles are `roles.yaml`. The Server Card's name, version, title, description and website
   are restated in `server.json`, and `tests/test_server_card.py` holds them equal.
 - **A test role never reaches production**: `environments` in `roles.yaml` decides where a
   role shows, and a test pins it.

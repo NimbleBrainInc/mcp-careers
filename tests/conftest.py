@@ -8,20 +8,7 @@ import pytest
 from mcp_careers import config, outbound, server
 from mcp_careers.store import Store
 
-NOTE = (
-    "My agent kept writing a description that said what the skill was about but never when "
-    "to use it, so it never loaded on the requests it was built for. I caught it by asking a "
-    "fresh session three real questions and watching it ignore the skill each time. I "
-    "rewrote the description around the trigger phrases people actually use. With another "
-    "day I would add a failure table for when the upstream system is down."
-)
-SKILL = (
-    "---\n"
-    "name: weekly-close\n"
-    "description: How to run the weekly books close. Use when someone asks to close the week.\n"
-    "---\n\n"
-    "# Weekly close\n\n1. Pull the ledger.\n2. Reconcile.\n"
-)
+NOTE = "I have run agents in production for two years and want to build the platform."
 
 
 def good_args(**overrides: str) -> dict[str, str]:
@@ -30,7 +17,7 @@ def good_args(**overrides: str) -> dict[str, str]:
         "name": "Ada Lovelace",
         "email": "ada@example.com",
         "resume_url": "https://example.com/ada.pdf",
-        "skill": SKILL,
+        "link": "https://github.com/ada/agent-tools",
         "note": NOTE,
     }
     args.update(overrides)

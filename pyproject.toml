@@ -44,5 +44,9 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "C4"]
 
+[tool.ruff.lint.per-file-ignores]
+# The page's CSS and markup are long string literals.
+"src/mcp_careers/pages.py" = ["E501"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

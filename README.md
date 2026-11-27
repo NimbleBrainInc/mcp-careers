@@ -1,16 +1,16 @@
 # NimbleBrain Careers MCP server
 
 Apply to NimbleBrain through your agent. Connect this server, ask your agent to help you
-apply, and it walks you through the challenge: build a skill from your own work, and tell
-us what your agent got wrong along the way.
+apply, and it sends us your resume, with a link to something you've built with agents and a
+short note if you like.
 
 ```text
 I want to apply to NimbleBrain. Add the MCP server at https://careers.nimblebrain.ai/mcp,
 then use its apply-to-nimblebrain skill to walk me through it.
 ```
 
-Prefer not to apply through an agent? Email careers@nimblebrain.ai with a resume and a
-link to your work.
+Prefer not to apply through an agent? Email careers@nimblebrain.ai with a resume or a
+profile link.
 
 ## Connect it
 
@@ -24,7 +24,7 @@ link to your work.
 
 | Tool | Kind | Does |
 |------|------|------|
-| `careers_get_challenge` | reads | Who we are, the open roles, the challenge, and what a submission needs. |
+| `careers_list_roles` | reads | Who we are, the open roles, and what an application needs. |
 | `careers_submit_application` | adds | Checks an application and returns a confirmation link. |
 
 The server also publishes one skill, `apply-to-nimblebrain`, that tells your agent how to

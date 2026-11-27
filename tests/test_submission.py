@@ -2,48 +2,54 @@
 
 from mcp_careers.outbound import application_message, slack_escape
 from mcp_careers.roles import load_roles
-from mcp_careers.submission import Submission, problems
+from mcp_careers.submission import Application, problems
 from tests.conftest import good_args
 
 ROLES = {"test-agent-engineer"}
+ROLE = load_roles("development")["test-agent-engineer"]
 
 
-def sub(**overrides: str) -> Submission:
-    return Submission(**good_args(**overrides))
+def app(**overrides: str) -> Application:
+    return Application(**good_args(**overrides))
 
 
-def test_a_good_submission_has_no_problems() -> None:
-    assert problems(sub(), ROLES) == []
+def test_a_good_application_has_no_problems() -> None:
+    assert problems(app(), ROLES) == []
 
 
-def test_the_resume_link_must_be_plain_https() -> None:
+def test_links_must_be_plain_https() -> None:
     for url in ("http://x.test/cv", "javascript:alert(1)", "https://x.test/a|b", "https:///cv"):
-        assert any("`resume_url`" in p for p in problems(sub(resume_url=url), ROLES)), url
+        assert any("`resume_url`" in p for p in problems(app(resume_url=url), ROLES)), url
+        assert any("`link`" in p for p in problems(app(link=url), ROLES)), url
 
 
-def test_the_skill_needs_frontmatter_with_name_and_description() -> None:
-    found = problems(sub(skill="# just a heading"), ROLES)
-    assert any("`name`" in p for p in found) and any("`description`" in p for p in found)
+def test_a_note_over_the_character_cap_is_refused() -> None:
+    assert any("`note`" in p for p in problems(app(note="x" * 2_001), ROLES))
+
+
+def test_an_empty_link_and_note_are_fine() -> None:
+    assert problems(app(link="", note=""), ROLES) == []
 
 
 def test_a_multiline_name_is_refused() -> None:
-    assert any("`name`" in p for p in problems(sub(name="Ada\nLovelace"), ROLES))
+    assert any("`name`" in p for p in problems(app(name="Ada\nLovelace"), ROLES))
 
 
 def test_slack_escaping_covers_control_characters() -> None:
     assert slack_escape("<!channel> & <@U1>") == "&lt;!channel&gt; &amp; &lt;@U1&gt;"
 
 
-def test_a_long_skill_is_trimmed_to_fit_slack() -> None:
-    role = load_roles("development")["test-agent-engineer"]
-    long_skill = good_args()["skill"] + "x" * 10_000
-    message = application_message(sub(skill=long_skill), role)
-    skill_block = message["blocks"][-1]["text"]["text"]
-    assert len(skill_block) < 3_000 and "trimmed" in skill_block
+def test_a_full_note_fits_slack_untrimmed() -> None:
+    note = ("x" * 9 + " ") * 200  # 2,000 characters, the most a note may hold
+    block = application_message(app(note=note.strip()), ROLE)["blocks"][-1]["text"]["text"]
+    assert len(block) < 3_000 and "trimmed" not in block
+
+
+def test_no_note_means_no_applicant_text_in_slack() -> None:
+    blocks = application_message(app(note=""), ROLE)["blocks"]
+    assert [b["type"] for b in blocks] == ["header", "section"]
 
 
 def test_applicant_fences_cannot_close_the_code_block() -> None:
-    role = load_roles("development")["test-agent-engineer"]
-    message = application_message(sub(note=good_args()["note"] + " ``` *bold*"), role)
-    note_block = message["blocks"][-2]["text"]["text"]
-    assert note_block.count("```") == 2
+    block = application_message(app(note="hello ``` *bold*"), ROLE)["blocks"][-1]["text"]["text"]
+    assert block.count("```") == 2
