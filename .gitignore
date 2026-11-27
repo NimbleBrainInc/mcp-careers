@@ -68,7 +68,6 @@ Thumbs.db
 .claude/
 
 # uv
-uv.lock
 .uv/
 
 # ruff
