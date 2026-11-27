@@ -15,13 +15,13 @@ roles:
     location: TBD
     pay_range: TBD
     summary: >-
-      Sit with a customer's team, find the work that should run on agents, and ship it on
-      NimbleBrain in their own infrastructure: the agents, the MCP servers that reach their
-      systems, and the apps their people use, live in weeks, not quarters. You own the
-      deployment end to end, from the first conversation to the day their CFO trusts what
-      the agent tells them, and what you build for one customer becomes product for the
-      next. We're building a $100M company around AI and AI deployments, and FDEs are how
-      it gets built. This is for someone who already runs their own work through agents,
-      ships fast, and wants to be early.
+      Design, build and deploy AI agent solutions and integrations for NimbleBrain and its
+      customers, working directly with customer teams. In practice: sit with a team, find
+      the work that should run on agents, and ship it on NimbleBrain in their own
+      infrastructure (the agents, the MCP servers that reach their systems, and the apps
+      their people use), live in weeks, not quarters. What you build for one customer
+      becomes product for the next. We're building a $100M company around AI and AI
+      deployments, and FDEs are how it gets built. This is for someone who already runs
+      their own work through agents, ships fast, and wants to be early.
     # Add `production` once location and pay range are set: listings must show pay.
     environments: [development, staging]
