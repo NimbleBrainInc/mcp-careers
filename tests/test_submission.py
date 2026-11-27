@@ -45,11 +45,21 @@ def test_a_full_note_fits_slack_untrimmed() -> None:
     assert len(block) < 3_000 and "trimmed" not in block
 
 
+def test_the_message_leads_with_who_applied_for_what() -> None:
+    message = application_message(app(note=""), ROLE)
+    first = message["blocks"][0]["text"]["text"]
+    assert first.startswith("*Ada Lovelace* applied for *Agent Engineer (test)*")
+    assert "|example.com/ada.pdf>" in first and "|github.com/ada/agent-tools>" in first
+    assert message["text"] == "Ada Lovelace applied for Agent Engineer (test)"
+
+
 def test_no_note_means_no_applicant_text_in_slack() -> None:
     blocks = application_message(app(note=""), ROLE)["blocks"]
-    assert [b["type"] for b in blocks] == ["header", "section"]
+    assert [b["type"] for b in blocks] == ["section"]
 
 
-def test_applicant_fences_cannot_close_the_code_block() -> None:
-    block = application_message(app(note="hello ``` *bold*"), ROLE)["blocks"][-1]["text"]["text"]
-    assert block.count("```") == 2
+def test_every_note_line_is_quoted_and_cannot_end_the_quote() -> None:
+    note = "first line\n> not a real quote marker\n\nlast <!here>"
+    block = application_message(app(note=note), ROLE)["blocks"][-1]["text"]["text"]
+    assert all(line.startswith(">") for line in block.splitlines())
+    assert "&gt; not a real quote marker" in block and "<!here>" not in block

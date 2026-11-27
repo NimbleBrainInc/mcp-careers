@@ -33,6 +33,11 @@ src/mcp_careers/
   cannot ping a channel or forge a link. Agents must not read the channel it posts to.
 - **One source per fact.** Roles are `roles.yaml`. The Server Card's name, version, title, description and website
   are restated in `server.json`, and `tests/test_server_card.py` holds them equal.
+- **A breaking change to a tool's inputs takes a new tool name.** A connected client can keep
+  an old copy of a tool's schema until it reconnects, so removing a field, newly requiring
+  one, or changing a type breaks it. Add the tool under a new name, keep the old one for one
+  release, then remove it. Adding an optional field or rewording a description is safe in
+  place. The golden files show every surface change in review.
 - **A test role never reaches production**: `environments` in `roles.yaml` decides where a
   role shows, and a test pins it.
 - **The public repo carries no internal detail**: no tenant names, internal hostnames, or
