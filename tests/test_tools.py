@@ -50,7 +50,7 @@ async def test_every_parameter_is_described(mode: Mode) -> None:
 @pytest.mark.parametrize("mode", MODES)
 async def test_list_roles_names_the_open_roles(mode: Mode) -> None:
     data = (await call(mode, "careers_list_roles", {})).structured_content
-    assert [r["id"] for r in data["roles"]] == ["test-agent-engineer"]
+    assert [r["id"] for r in data["roles"]] == ["test-agent-engineer", "forward-deployed-engineer"]
     assert "careers_submit_application" in data["how_to_apply"]
 
 
