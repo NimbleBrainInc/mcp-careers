@@ -6,7 +6,7 @@ name: Release
 #
 # Promote by retag, not rebuild: ci.yml built and pushed the bare <sha> image on merge to
 # main and staging ran it. A release retags that exact manifest as the version, so
-# production runs byte for byte what staging ran, then asks the deploy-config repo to point
+# production runs byte for byte what staging ran, then asks the deploy configuration to point
 # production at it. The tag is the human gate.
 #
 # The ref is the release: every ref expression is `github.ref`, so the tag being released
@@ -130,7 +130,7 @@ jobs:
           private-key: ${{ secrets.PROD_PROMOTE_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ vars.DEPLOY_CONFIG_REPO }}
-      - name: Dispatch prod-image-promoted
+      - name: Ask the deploy configuration to promote production
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           VERSION: ${{ needs.release.outputs.version }}

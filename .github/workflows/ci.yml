@@ -111,7 +111,7 @@ jobs:
           private-key: ${{ secrets.EDGE_BUMP_APP_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ vars.DEPLOY_CONFIG_REPO }}
-      - name: Dispatch fleet-image-pushed
+      - name: Ask the deploy configuration to roll staging
         if: steps.cfg.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
