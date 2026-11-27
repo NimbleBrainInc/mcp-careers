@@ -444,7 +444,18 @@ async def confirm(request: Request) -> HTMLResponse:
 # Entrypoints
 # ============================================================================
 
-app = mcp.http_app()
+
+def build_app():
+    """The ASGI app uvicorn serves.
+
+    Stateless: no MCP session, so every request is self-contained and any replica serves any
+    request. With sessions, a follow-up landing on another pod than the one that opened the
+    session is refused "Session not found". No tool keeps state between requests.
+    """
+    return mcp.http_app(stateless_http=True, json_response=True)
+
+
+app = build_app()
 
 if __name__ == "__main__":
     mcp.run()
