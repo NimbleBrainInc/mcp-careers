@@ -9,8 +9,7 @@ the person confirms on a page with Turnstile; the application posts to Slack. Pu
 src/mcp_careers/
 ├── server.py        # FastMCP server: the two tools, /confirm/{token}, /health
 ├── config.py        # every setting, from the environment
-├── roles.yaml       # the open roles and the environments each shows in
-├── roles.py         # loads roles.yaml
+├── roles.py         # loads and checks the deployment's careers config
 ├── submission.py    # the fields and every check on them
 ├── store.py         # Redis keys, all expiring (layout in its docstring)
 ├── outbound.py      # Turnstile siteverify, the Slack webhook, the Slack message
@@ -31,15 +30,18 @@ src/mcp_careers/
   the confirmation page ask the person to check instead.
 - **Applicant text is escaped for Slack** (`slack_escape`) and sent as a quote, so it
   cannot ping a channel or forge a link. Agents must not read the channel it posts to.
-- **One source per fact.** Roles are `roles.yaml`. The Server Card's name, version, title, description and website
+- **The careers content is the deployment's, never this repo's.** Who is hiring, the
+  question applicants answer, and the open roles come from the deployment's config
+  (`CAREERS_CONFIG`, or a path in `CAREERS_CONFIG_FILE`; `examples/careers.yaml` has the
+  shape). The server refuses to start without one. Nothing in code or tool descriptions names
+  a role or the question.
+- **One source per fact.** The Server Card's name, version, title, description and website
   are restated in `server.json`, and `tests/test_server_card.py` holds them equal.
 - **A breaking change to a tool's inputs takes a new tool name.** A connected client can keep
   an old copy of a tool's schema until it reconnects, so removing a field, newly requiring
   one, or changing a type breaks it. Add the tool under a new name, keep the old one for one
   release, then remove it. Adding an optional field or rewording a description is safe in
   place. The golden files show every surface change in review.
-- **A test role never reaches production**: `environments` in `roles.yaml` decides where a
-  role shows, and a test pins it.
 - **The public repo carries no internal detail**: no tenant names, internal hostnames, or
   paths into private repos, in code, docs or fixtures.
 
@@ -54,7 +56,8 @@ cross the wire run on both protocol eras (`mode="auto"` and `"legacy"`).
 
 | Variable | Default | |
 |---|---|---|
-| `CAREERS_ENV` | `development` | Which roles show. |
+| `CAREERS_CONFIG` | none | The careers config as YAML: `about`, `question`, `roles`. |
+| `CAREERS_CONFIG_FILE` | none | A path to the same, when `CAREERS_CONFIG` is unset. One of the two is required. |
 | `CAREERS_PUBLIC_URL` | `http://127.0.0.1:8000` | Origin of the confirmation link. |
 | `REDIS_URL` | `redis://127.0.0.1:6379/0` | |
 | `SLACK_WEBHOOK_URL` | none | Required to accept applications. |

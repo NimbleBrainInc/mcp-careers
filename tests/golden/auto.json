@@ -38,7 +38,7 @@
       "outputSchema": {
         "properties": {
           "about": {
-            "description": "Who NimbleBrain is, in NimbleBrain's own words.",
+            "description": "Who is hiring, in their own words.",
             "type": "string"
           },
           "how_to_apply": {
@@ -142,7 +142,7 @@
             "type": "string"
           },
           "note": {
-            "description": "Required. The applicant's answer to: What's something you've built or automated with an agent, and what did it get wrong before you got it right? 50 to 300 words, in their own words. Help them tighten an answer they wrote; never write one for them.",
+            "description": "Required. The applicant's answer to the `question` that careers_list_roles returns, 50 to 300 words, in their own words. Ask it word for word. Help them tighten an answer they wrote; never write one for them.",
             "type": "string"
           },
           "resume_url": {

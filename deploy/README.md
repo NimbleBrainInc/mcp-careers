@@ -3,10 +3,10 @@
 The server is a stateless container: any instance serves any request, and the state is
 expiring keys in Redis. Applicants do not sign in.
 
-| Environment | Roles shown | Slack channel |
+| Environment | Careers config | Slack channel |
 |---|---|---|
-| Staging | `CAREERS_ENV=staging`: every role, including the test role, whose title ends in "(test)" | the hiring channel, shared for now |
-| Production, at `https://careers.nimblebrain.ai/mcp` | `CAREERS_ENV=production` | the hiring channel |
+| Staging | its own `CAREERS_CONFIG` | the hiring channel, shared for now |
+| Production, at `https://careers.nimblebrain.ai/mcp` | its own `CAREERS_CONFIG` | the hiring channel |
 
 ## How a change ships
 
@@ -39,7 +39,7 @@ deploy configuration.
 
 | Setting | Value |
 |---|---|
-| `CAREERS_ENV` | `staging` or `production` |
+| `CAREERS_CONFIG` | the deployment's careers config as YAML (`examples/careers.yaml` has the shape); the server refuses to start without it |
 | `CAREERS_PUBLIC_URL` | the environment's origin, e.g. `https://careers.nimblebrain.ai` |
 | `REDIS_URL` | the Redis instance |
 | `SLACK_WEBHOOK_URL` | an incoming webhook for the hiring channel |

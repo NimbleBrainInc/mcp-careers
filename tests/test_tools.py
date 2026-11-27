@@ -50,26 +50,14 @@ async def test_every_parameter_is_described(mode: Mode) -> None:
 @pytest.mark.parametrize("mode", MODES)
 async def test_list_roles_names_the_open_roles(mode: Mode) -> None:
     data = (await call(mode, "careers_list_roles", {})).structured_content
-    assert [r["id"] for r in data["roles"]] == [
-        "test-agent-engineer",
-        "forward-deployed-engineer",
-        "open-application",
-    ]
-    fde = data["roles"][1]
-    assert fde["location"] == "Remote" and fde["type"] == "Contract to hire"
-    assert fde.get("pay_range") is None
+    assert [r["id"] for r in data["roles"]] == ["agent-engineer", "open-application"]
+    first, second = data["roles"]
+    assert first["type"] == "Full time" and first["pay_range"] == "$120k-$160k"
+    assert second.get("type") is None and second.get("pay_range") is None
+    assert data["about"].startswith("Example Co")
     assert "careers_submit_application" in data["how_to_apply"]
     assert data["question"].startswith("What's something you've built or automated")
     assert "other_way_to_apply" not in data
-
-
-async def test_production_shows_real_roles_and_never_the_test_role(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(config, "settings", replace(config.settings, env="production"))
-    result = await call("auto", "careers_list_roles", {})
-    ids = [r["id"] for r in result.structured_content["roles"]]
-    assert ids == ["forward-deployed-engineer", "open-application"]
 
 
 @pytest.mark.parametrize("mode", MODES)

@@ -7,7 +7,6 @@ the team's Slack channel. Nothing is stored beyond expiring keys in Redis.
 
 import logging
 import sys
-from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import parse_qs
@@ -29,13 +28,13 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 from mcp_careers import __version__, config, outbound
+from mcp_careers import roles as careers_config
 from mcp_careers.pages import confirm_page, message_page
-from mcp_careers.roles import Role, load_roles
+from mcp_careers.roles import Careers, Role
 from mcp_careers.store import Store
 from mcp_careers.submission import (
     MAX_NOTE_WORDS,
     MIN_NOTE_WORDS,
-    QUESTION,
     Application,
     normalized,
     problems,
@@ -50,12 +49,6 @@ logger = logging.getLogger("mcp_careers")
 
 SKILL_DIR = Path(__file__).parent / "skills" / "apply-to-nimblebrain"
 
-ABOUT = (
-    "NimbleBrain is an open-source platform for running your business on AI. Everything is "
-    "included: agents, the apps they work in (a CRM, to-dos, memory, research and "
-    "automations) and 1,000+ connectors, on any model, in your own infrastructure. Our team "
-    "sets it up and runs it with you, or you run it yourself."
-)
 
 # The Server Card's title and description, restated in server.json (a test holds them equal).
 TITLE = "NimbleBrain Careers"
@@ -100,13 +93,13 @@ def set_store(store: Store | None) -> None:
     _store = store
 
 
-@lru_cache(maxsize=4)
-def _roles_for(env: str) -> dict[str, Role]:
-    return load_roles(env)
+# The deployment's careers config, read once at import: a missing or malformed config stops
+# the process before it serves anything, with a message naming what to fix.
+CAREERS: Careers = careers_config.load(config.settings)
 
 
 def open_roles() -> dict[str, Role]:
-    return _roles_for(config.settings.env)
+    return CAREERS.roles
 
 
 def client_ip(request: Request | None) -> str:
@@ -167,7 +160,7 @@ class OpenRole(BaseModel):
 
 
 class RolesResult(BaseModel):
-    about: str = Field(description="Who NimbleBrain is, in NimbleBrain's own words.")
+    about: str = Field(description="Who is hiring, in their own words.")
     roles: list[OpenRole] = Field(description="The open roles. Empty when none are open.")
     question: str = Field(description="The question every applicant answers in `note`.")
     how_to_apply: str = Field(description="What an application needs and what happens after.")
@@ -211,7 +204,7 @@ async def careers_list_roles() -> RolesResult:
     """
     logger.info("event=list_roles")
     return RolesResult(
-        about=ABOUT,
+        about=CAREERS.about,
         roles=[
             OpenRole(
                 id=r.id,
@@ -223,7 +216,7 @@ async def careers_list_roles() -> RolesResult:
             )
             for r in open_roles().values()
         ],
-        question=QUESTION,
+        question=CAREERS.question,
         how_to_apply=HOW_TO_APPLY,
     )
 
@@ -252,9 +245,9 @@ async def careers_submit_application(
         str,
         Field(
             description=(
-                f"Required. The applicant's answer to: {QUESTION} {MIN_NOTE_WORDS} to "
-                f"{MAX_NOTE_WORDS} words, in their own words. Help them tighten an answer they "
-                "wrote; never write one for them."
+                "Required. The applicant's answer to the `question` that careers_list_roles "
+                f"returns, {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words, in their own words. Ask it "
+                "word for word. Help them tighten an answer they wrote; never write one for them."
             )
         ),
     ],
@@ -298,7 +291,7 @@ async def careers_submit_application(
                 "Try again in an hour.",
                 retryable=True,
             )
-        found = problems(app, set(open_roles()))
+        found = problems(app, set(open_roles()), CAREERS.question)
         if found:
             raise ServiceError(
                 ErrorCode.BAD_INPUT,
@@ -420,7 +413,9 @@ async def confirm(request: Request) -> HTMLResponse:
             )
 
         try:
-            await outbound.post_to_slack(webhook, outbound.application_message(app, role))
+            await outbound.post_to_slack(
+                webhook, outbound.application_message(app, role, CAREERS.question)
+            )
         except outbound.OutboundError as e:
             logger.error("slack post failed: %s", e)
             await store.unreserve(app.email)

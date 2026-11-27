@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 import aiohttp
 
 from mcp_careers.roles import Role
-from mcp_careers.submission import QUESTION, Application
+from mcp_careers.submission import Application
 
 logger = logging.getLogger("mcp_careers.outbound")
 
@@ -15,8 +15,6 @@ SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 TIMEOUT = aiohttp.ClientTimeout(total=10)
 # Slack refuses a section whose text is over 3,000 characters. The trim notice fits in the rest.
 SLACK_TEXT_LIMIT = 2_900
-# Labels the applicant's answer in Slack with the question it answers.
-APPLICANT_TEXT_NOTICE = f"Their answer to: {QUESTION}"
 
 
 class OutboundError(Exception):
@@ -94,7 +92,7 @@ def _link(url: str) -> str:
     return f"<{slack_escape(url)}|{_label(url)}>"
 
 
-def application_message(app: Application, role: Role) -> dict:
+def application_message(app: Application, role: Role, question: str) -> dict:
     """The Slack message for one confirmed application."""
     name = slack_escape(app.name)
     title = slack_escape(role.title)
@@ -109,7 +107,12 @@ def application_message(app: Application, role: Role) -> dict:
     blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]
     if app.note:
         blocks += [
-            {"type": "context", "elements": [{"type": "mrkdwn", "text": APPLICANT_TEXT_NOTICE}]},
+            {
+                "type": "context",
+                "elements": [
+                    {"type": "mrkdwn", "text": f"Their answer to: {slack_escape(question)}"}
+                ],
+            },
             {"type": "section", "text": {"type": "mrkdwn", "text": _quote(app.note)}},
         ]
     return {"text": f"{name} applied for {title}", "blocks": blocks}

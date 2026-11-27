@@ -1,12 +1,19 @@
 """Shared fixtures: an in-memory Redis, ready settings, and recorded outbound calls."""
 
+import os
 from dataclasses import replace
+from pathlib import Path
 
-import fakeredis
-import pytest
+# The server loads its careers config at import, so point it at the example first.
+os.environ.setdefault(
+    "CAREERS_CONFIG_FILE", str(Path(__file__).parent.parent / "examples" / "careers.yaml")
+)
 
-from mcp_careers import config, outbound, server
-from mcp_careers.store import Store
+import fakeredis  # noqa: E402
+import pytest  # noqa: E402
+
+from mcp_careers import config, outbound, server  # noqa: E402
+from mcp_careers.store import Store  # noqa: E402
 
 NOTE = (
     "I built an agent that reconciles our weekly ledger against the bank feed. For the first "
@@ -19,7 +26,7 @@ NOTE = (
 
 def good_args(**overrides: str) -> dict[str, str]:
     args = {
-        "role": "test-agent-engineer",
+        "role": "agent-engineer",
         "name": "Ada Lovelace",
         "email": "ada@example.com",
         "resume_url": "https://example.com/ada.pdf",
@@ -51,7 +58,6 @@ class Outbound:
 def ready_settings(monkeypatch: pytest.MonkeyPatch):
     settings = replace(
         config.settings,
-        env="development",
         public_url="https://careers.test",
         slack_webhook_url="https://hooks.slack.test/x",
         turnstile_site_key="site-key",

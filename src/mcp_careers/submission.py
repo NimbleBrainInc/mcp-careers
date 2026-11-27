@@ -16,12 +16,6 @@ MAX_NOTE_WORDS = 300
 # A cap in characters too, so a note always fits one Slack block untrimmed.
 MAX_NOTE_CHARS = 2_000
 
-# The one question every applicant answers, in their own words.
-QUESTION = (
-    "What's something you've built or automated with an agent, and "
-    "what did it get wrong before you got it right?"
-)
-
 _EMAIL = re.compile(r"^[^@\s<>|]+@[^@\s<>|]+\.[^@\s<>|]+$")
 # Characters that would break or inject into a Slack link (`<url|text>`).
 _URL_FORBIDDEN = re.compile(r"[\s<>|\"']")
@@ -63,7 +57,7 @@ def _url_problem(url: str) -> str | None:
     return None
 
 
-def problems(app: Application, open_roles: set[str]) -> list[str]:
+def problems(app: Application, open_roles: set[str], question: str) -> list[str]:
     """Everything wrong with an application, each as an instruction the agent can act on."""
     found: list[str] = []
 
@@ -93,7 +87,7 @@ def problems(app: Application, open_roles: set[str]) -> list[str]:
         found.append(
             f"`note` must be {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words and at most "
             f"{MAX_NOTE_CHARS:,} characters (it has {words} words, {len(app.note):,} characters), "
-            f"written by the applicant, answering: {QUESTION}"
+            f"written by the applicant, answering: {question}"
         )
 
     return found
