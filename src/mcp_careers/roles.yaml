@@ -1,6 +1,5 @@
 # The open roles. `environments` names where a role shows (CAREERS_ENV), so a test role
 # never reaches production. careers_list_roles and the careers page both read this file.
-# all read this file.
 roles:
   - id: test-agent-engineer
     title: Agent Engineer (test)
