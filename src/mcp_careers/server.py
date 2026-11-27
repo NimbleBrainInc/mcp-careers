@@ -152,7 +152,12 @@ class OpenRole(BaseModel):
     id: str = Field(description="Pass this as `role` to careers_submit_application.")
     title: str
     location: str
-    pay_range: str
+    type: str | None = Field(
+        default=None, description="Such as contract to hire. Null when not set."
+    )
+    pay_range: str | None = Field(
+        default=None, description="Null when the role does not state one."
+    )
     summary: str
 
 
@@ -202,7 +207,17 @@ async def careers_list_roles() -> RolesResult:
     logger.info("event=list_roles")
     return RolesResult(
         about=ABOUT,
-        roles=[OpenRole(**r.public()) for r in open_roles().values()],
+        roles=[
+            OpenRole(
+                id=r.id,
+                title=r.title,
+                location=r.location,
+                type=r.type,
+                pay_range=r.pay_range,
+                summary=r.summary,
+            )
+            for r in open_roles().values()
+        ],
         how_to_apply=HOW_TO_APPLY,
         other_way_to_apply=FALLBACK,
     )

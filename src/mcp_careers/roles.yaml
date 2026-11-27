@@ -1,5 +1,6 @@
 # The open roles. `environments` names where a role shows (CAREERS_ENV), so a test role
-# never reaches production. careers_list_roles and the careers page both read this file.
+# never reaches production. `type` and `pay_range` are optional. careers_list_roles and the
+# careers page both read this file.
 roles:
   - id: test-agent-engineer
     title: Agent Engineer (test)
@@ -12,8 +13,8 @@ roles:
 
   - id: forward-deployed-engineer
     title: Forward Deployed Engineer
-    location: TBD
-    pay_range: TBD
+    location: Remote
+    type: Contract to hire
     summary: >-
       Design, build and deploy AI agent solutions and integrations for NimbleBrain and its
       customers, working directly with customer teams. In practice: sit with a team, find
@@ -23,5 +24,13 @@ roles:
       becomes product for the next. We're building a $100M company around AI and AI
       deployments, and FDEs are how it gets built. This is for someone who already runs
       their own work through agents, ships fast, and wants to be early.
-    # Add `production` once location and pay range are set: listings must show pay.
-    environments: [development, staging]
+    environments: [development, staging, production]
+
+  - id: open-application
+    title: Open application
+    location: Remote
+    summary: >-
+      Don't see your role? We're a fully remote team, always looking for people who are
+      good at what they do and already work with agents every day. Tell us what you'd
+      build here, and we'll be in touch when there's a fit.
+    environments: [development, staging, production]

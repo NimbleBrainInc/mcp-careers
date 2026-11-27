@@ -61,20 +61,40 @@
                   "type": "string"
                 },
                 "pay_range": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Null when the role does not state one."
                 },
                 "summary": {
                   "type": "string"
                 },
                 "title": {
                   "type": "string"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Such as contract to hire. Null when not set."
                 }
               },
               "required": [
                 "id",
                 "title",
                 "location",
-                "pay_range",
                 "summary"
               ],
               "type": "object"

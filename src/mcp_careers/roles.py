@@ -13,17 +13,21 @@ class Role:
     id: str
     title: str
     location: str
-    pay_range: str
     summary: str
+    type: str | None = None
+    pay_range: str | None = None
 
-    def public(self) -> dict[str, str]:
-        return {
+    def public(self) -> dict[str, str | None]:
+        """The role as an agent sees it; a field the role does not set is None."""
+        fields = {
             "id": self.id,
             "title": self.title,
             "location": self.location,
+            "type": self.type,
             "pay_range": self.pay_range,
             "summary": self.summary,
         }
+        return fields
 
 
 def load_roles(env: str, path: Path = ROLES_FILE) -> dict[str, Role]:
@@ -37,8 +41,9 @@ def load_roles(env: str, path: Path = ROLES_FILE) -> dict[str, Role]:
             id=entry["id"],
             title=entry["title"],
             location=entry["location"],
-            pay_range=entry["pay_range"],
             summary=entry["summary"],
+            type=entry.get("type"),
+            pay_range=entry.get("pay_range"),
         )
         roles[role.id] = role
     return roles
