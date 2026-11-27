@@ -39,9 +39,12 @@ def word_count(text: str) -> int:
 
 def _url_problem(url: str) -> str | None:
     """What is wrong with a link, in words an agent can act on, or None."""
-    parts = urlsplit(url)
     if not url:
         return "is empty"
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "is not a well-formed URL"
     if parts.scheme != "https":
         return "must start with https://"
     if not parts.netloc:

@@ -102,6 +102,14 @@ async def test_every_problem_is_listed_at_once(mode: Mode) -> None:
         assert field in error["message"]
 
 
+async def test_a_malformed_link_is_bad_input() -> None:
+    args = good_args(resume_url="https://[broken", link="https://[broken")
+    result = await call("auto", "careers_submit_application", args)
+    error = result.structured_content["error"]
+    assert error["code"] == "bad_input"
+    assert "`resume_url`" in error["message"] and "`link`" in error["message"]
+
+
 async def test_an_unknown_role_is_bad_input() -> None:
     result = await call("auto", "careers_submit_application", good_args(role="ceo"))
     assert result.structured_content["error"]["code"] == "bad_input"

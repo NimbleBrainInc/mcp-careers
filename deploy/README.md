@@ -5,7 +5,7 @@ expiring keys in Redis. Applicants do not sign in.
 
 | Environment | Roles shown | Slack channel |
 |---|---|---|
-| Staging | `CAREERS_ENV=staging`: only the test role, whose title ends in "(test)" | the hiring channel, shared for now |
+| Staging | `CAREERS_ENV=staging`: every role, including the test role, whose title ends in "(test)" | the hiring channel, shared for now |
 | Production, at `https://careers.nimblebrain.ai/mcp` | `CAREERS_ENV=production` | the hiring channel |
 
 ## How a change ships

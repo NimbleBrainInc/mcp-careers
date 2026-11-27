@@ -29,7 +29,7 @@ src/mcp_careers/
   does not check that they open: LinkedIn refuses automated requests, and fetching an
   applicant's URL from inside the cluster is a server-side request forgery risk. The skill and
   the confirmation page ask the person to check instead.
-- **Applicant text is escaped for Slack** (`slack_escape`) and sent inside code blocks, so it
+- **Applicant text is escaped for Slack** (`slack_escape`) and sent as a quote, so it
   cannot ping a channel or forge a link. Agents must not read the channel it posts to.
 - **One source per fact.** Roles are `roles.yaml`. The Server Card's name, version, title, description and website
   are restated in `server.json`, and `tests/test_server_card.py` holds them equal.

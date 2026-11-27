@@ -23,6 +23,12 @@ def test_links_must_be_plain_https() -> None:
         assert any("`link`" in p for p in problems(app(link=url), ROLES)), url
 
 
+def test_a_malformed_link_is_a_problem_not_an_error() -> None:
+    url = "https://[broken"
+    assert any("`resume_url`" in p for p in problems(app(resume_url=url), ROLES))
+    assert any("`link`" in p for p in problems(app(link=url), ROLES))
+
+
 def test_a_note_over_the_character_cap_is_refused() -> None:
     assert any("`note`" in p for p in problems(app(note="x" * 2_001), ROLES))
 
@@ -43,6 +49,14 @@ def test_a_full_note_fits_slack_untrimmed() -> None:
     note = ("x" * 9 + " ") * 200  # 2,000 characters, the most a note may hold
     block = application_message(app(note=note.strip()), ROLE)["blocks"][-1]["text"]["text"]
     assert len(block) < 3_000 and "trimmed" not in block
+
+
+def test_an_accepted_note_always_fits_one_slack_section() -> None:
+    note = "x\n" * 299 + "&" * 1_402  # 2,000 characters and 300 words, escaping to more
+    assert problems(app(note=note), ROLES) == []
+    block = application_message(app(note=note), ROLE)["blocks"][-1]["text"]["text"]
+    assert len(block) <= 3_000 and block.endswith("characters in all)")
+    assert all(line.startswith(">") for line in block.splitlines())
 
 
 def test_the_message_leads_with_who_applied_for_what() -> None:
