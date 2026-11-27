@@ -6,7 +6,7 @@ tenants.
 
 | Environment | URL | Roles shown | Slack channel |
 |---|---|---|---|
-| Staging | `https://careers.preview.nimblebrain.ai/mcp` | `CAREERS_ENV=staging` | the test channel |
+| Staging | `https://careers.preview.nimblebrain.ai/mcp` | `CAREERS_ENV=staging` | the hiring channel, shared for now: staging shows only the test role, whose title ends in "(test)" |
 | Production | `https://careers.nimblebrain.ai/mcp` | `CAREERS_ENV=production` | the hiring channel |
 
 ## How a change ships
