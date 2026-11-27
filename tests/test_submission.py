@@ -48,7 +48,8 @@ def test_a_full_note_fits_slack_untrimmed() -> None:
 def test_the_message_leads_with_who_applied_for_what() -> None:
     message = application_message(app(note=""), ROLE)
     first = message["blocks"][0]["text"]["text"]
-    assert first.startswith("*Ada Lovelace* applied for *Agent Engineer (test)*")
+    assert first.startswith(":inbox_tray: *Ada Lovelace* applied for *Agent Engineer (test)*")
+    assert first.count("\n•  ") == 3
     assert "|example.com/ada.pdf>" in first and "|github.com/ada/agent-tools>" in first
     assert message["text"] == "Ada Lovelace applied for Agent Engineer (test)"
 

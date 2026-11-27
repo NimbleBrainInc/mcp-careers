@@ -95,18 +95,14 @@ def application_message(app: Application, role: Role) -> dict:
     name = slack_escape(app.name)
     title = slack_escape(role.title)
     email = slack_escape(app.email)
-    links = [f"<mailto:{email}|{email}>", f"Resume: {_link(app.resume_url)}"]
-    if app.link:
-        links.append(f"Built with agents: {_link(app.link)}")
-    blocks: list[dict] = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*{name}* applied for *{title}*\n" + "  ·  ".join(links),
-            },
-        }
+    lines = [
+        f":inbox_tray: *{name}* applied for *{title}*",
+        f"•  Email: <mailto:{email}|{email}>",
+        f"•  Resume: {_link(app.resume_url)}",
     ]
+    if app.link:
+        lines.append(f"•  Built with agents: {_link(app.link)}")
+    blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]
     if app.note:
         blocks += [
             {"type": "context", "elements": [{"type": "mrkdwn", "text": APPLICANT_TEXT_NOTICE}]},
