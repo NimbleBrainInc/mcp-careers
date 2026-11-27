@@ -68,7 +68,6 @@ Thumbs.db
 .claude/
 
 # uv
-uv.lock
 .uv/
 
 # ruff
@@ -95,10 +94,9 @@ temp/
 *.pem
 credentials.json
 
-# MCPB bundles
-bundle/
-deps/
-*.mcpb
 
 # Scanner reports
 security-report.json
+
+# Written by tests/test_golden.py when the surface differs
+tests/golden/*.actual.json

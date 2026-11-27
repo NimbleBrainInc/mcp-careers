@@ -1,0 +1,141 @@
+name: Release
+
+# Promote a staging-verified build to production by pushing a version tag:
+#
+#   v0.1.0  ->  mcp-careers:v0.1.0
+#
+# Promote by retag, not rebuild: ci.yml built and pushed the bare <sha> image on merge to
+# main and staging ran it. A release retags that exact manifest as the version, so
+# production runs byte for byte what staging ran, then asks the deploy configuration to point
+# production at it. The tag is the human gate.
+#
+# The ref is the release: every ref expression is `github.ref`, so the tag being released
+# and the workflow running are the same commit. Re-run with
+# `gh workflow run release.yml --ref v0.1.0`.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Before any side effect: a set PROD_PROMOTE_APP_ID with a missing key would otherwise
+  # retag ECR and then fail to promote, leaving a released image production never got.
+  preflight:
+    name: Preflight
+    if: vars.AWS_ROLE_ARN != '' && vars.PROD_PROMOTE_APP_ID != ''
+    runs-on: ubuntu-latest
+    environment: deploy-config-prod
+    permissions: {}
+    steps:
+      - name: Prod-promote secret present
+        env:
+          KEY: ${{ secrets.PROD_PROMOTE_APP_KEY }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::PROD_PROMOTE_APP_KEY is not readable from the deploy-config-prod environment (deploy/README.md)."; exit 1; }
+
+  release:
+    name: Promote release image
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      version: ${{ steps.r.outputs.dst }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve release version and source image
+        id: r
+        env:
+          # Through the environment, not interpolated: a crafted ref must not break out of
+          # the string in a job that holds AWS credentials.
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ver="$REF"
+          if ! [[ "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$ver' is not a clean vX.Y.Z"; exit 1
+          fi
+          # The tag must match the version the image reports. ECR tags are immutable, so a
+          # mismatch caught after the retag would burn the version number.
+          want="${ver#v}"
+          got="$(jq -r '.version' server.json)"
+          if [ "$want" != "$got" ]; then
+            echo "::error::Tag $ver implies version $want but server.json says $got. Bump pyproject.toml and server.json, let that commit ride staging, then tag it."
+            exit 1
+          fi
+          {
+            echo "repo=mcp-careers"
+            echo "src=$(git rev-parse --short HEAD)"
+            echo "dst=$ver"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Promote by retag
+        env:
+          REPO: ${{ steps.r.outputs.repo }}
+          SRC: ${{ steps.r.outputs.src }}
+          DST: ${{ steps.r.outputs.dst }}
+        run: |
+          set -euo pipefail
+          # The byte-for-byte promise needs an immutable repository.
+          MUT="$(aws ecr describe-repositories --repository-names "$REPO" --query 'repositories[0].imageTagMutability' --output text)"
+          [ "$MUT" = "IMMUTABLE" ] || { echo "::error::ECR repo $REPO is $MUT, not IMMUTABLE"; exit 1; }
+          # The source image must exist: a commit that never rode staging is not released.
+          MAN="$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="$SRC" --query 'images[0].imageManifest' --output text 2>/dev/null || true)"
+          if [ -z "$MAN" ] || [ "$MAN" = "None" ]; then
+            echo "::error::No image $REPO:$SRC for this commit: it never rode staging. Tag a commit that merged to main."
+            exit 1
+          fi
+          # A re-run of the same release passes; re-releasing a version as another image fails.
+          DSTDIG="$(aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$DST" --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)"
+          if [ -n "$DSTDIG" ] && [ "$DSTDIG" != "None" ]; then
+            SRCDIG="$(aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$SRC" --query 'imageDetails[0].imageDigest' --output text)"
+            [ "$DSTDIG" = "$SRCDIG" ] || { echo "::error::$REPO:$DST already exists as a different image"; exit 1; }
+            echo "already promoted ($REPO:$DST == $SRC)"
+          else
+            aws ecr put-image --repository-name "$REPO" --image-tag "$DST" --image-manifest "$MAN" >/dev/null
+            echo "promoted $REPO:$SRC -> $REPO:$DST"
+          fi
+
+  # If this fails after the retag, re-run it: the retag is done and a same-image re-run passes.
+  promote:
+    name: Dispatch prod promote
+    needs: release
+    runs-on: ubuntu-latest
+    environment: deploy-config-prod
+    permissions: {}
+    steps:
+      - name: Mint prod-promote token
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.PROD_PROMOTE_APP_ID }}
+          private-key: ${{ secrets.PROD_PROMOTE_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ vars.DEPLOY_CONFIG_REPO }}
+      - name: Ask the deploy configuration to promote production
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          gh api "repos/${{ github.repository_owner }}/${{ vars.DEPLOY_CONFIG_REPO }}/dispatches" \
+            -f event_type=prod-image-promoted \
+            -f "client_payload[target]=mcp-careers" \
+            -f "client_payload[version]=$VERSION"

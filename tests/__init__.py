@@ -1,1 +1,1 @@
-"""Tests for Example MCP Server."""
+"""Tests for the careers MCP server."""

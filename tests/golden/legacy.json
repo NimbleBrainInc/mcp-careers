@@ -1,0 +1,195 @@
+{
+  "instructions": "Helps a person apply for a job at NimbleBrain. Read the skill://apply-to-nimblebrain/SKILL.md resource before calling a tool.",
+  "prompts": [],
+  "resource_templates": [],
+  "resources": [
+    {
+      "mimeType": "text/markdown",
+      "sha256": "e40e5afb7726454648969e6823d7d87d7e4e963bbe96a4805251251308203a50",
+      "uri": "skill://apply-to-nimblebrain/SKILL.md"
+    }
+  ],
+  "server_card": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+    "description": "Apply to NimbleBrain through your agent: see the open roles and send your resume.",
+    "name": "ai.nimblebrain/careers",
+    "title": "NimbleBrain Careers",
+    "websiteUrl": "https://nimblebrain.ai/careers"
+  },
+  "tools": [
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List NimbleBrain's open roles and how to apply.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is\nhiring for, before calling careers_submit_application. It returns who NimbleBrain is, each\nopen role (id, title, location, pay range, summary), and what an application needs. When\nno role is open, say so and offer the email address in `other_way_to_apply`.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "name": "careers_list_roles",
+      "outputSchema": {
+        "properties": {
+          "about": {
+            "description": "Who NimbleBrain is, in NimbleBrain's own words.",
+            "type": "string"
+          },
+          "how_to_apply": {
+            "description": "What an application needs and what happens after.",
+            "type": "string"
+          },
+          "other_way_to_apply": {
+            "description": "For a person who would rather not use an agent.",
+            "type": "string"
+          },
+          "roles": {
+            "description": "The open roles. Empty when none are open.",
+            "items": {
+              "properties": {
+                "id": {
+                  "description": "Pass this as `role` to careers_submit_application.",
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "pay_range": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Null when the role does not state one."
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Such as contract to hire. Null when not set."
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "location",
+                "summary"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "about",
+          "roles",
+          "how_to_apply",
+          "other_way_to_apply"
+        ],
+        "type": "object"
+      },
+      "title": "List NimbleBrain's open roles"
+    },
+    {
+      "_meta": {
+        "fastmcp": {
+          "tags": []
+        }
+      },
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Send a NimbleBrain job application for the person to confirm.\n\nCall this only after the person has seen exactly what will be sent and said to send it.\nDo not use it to ask questions about a role; careers_list_roles answers those. It checks\nevery field and either refuses with a list of what to fix (`bad_input`), or holds the\napplication and returns a `confirm_url`. Nothing reaches NimbleBrain until the person\nopens that link within an hour and passes a quick human check, so always give them the\nlink. One application per email address every 60 days (`conflict`). If a required field\nis missing, ask the person for it rather than guessing.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "The applicant's email address. NimbleBrain replies here.",
+            "type": "string"
+          },
+          "link": {
+            "default": "",
+            "description": "Optional. An https link to something the applicant has built with agents (a repo, a skill, a demo). Leave empty if there is none.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The applicant's full name, one line.",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "description": "Optional. Up to 300 words the applicant wrote themselves: why NimbleBrain, or anything they want the team to know. Do not write one for them. Leave empty if they have none.",
+            "type": "string"
+          },
+          "resume_url": {
+            "description": "An https link to the applicant's resume or a profile such as LinkedIn. It must open for someone who is not signed in: a public document, not a private file.",
+            "type": "string"
+          },
+          "role": {
+            "description": "The `id` of an open role, from careers_list_roles.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "name",
+          "email",
+          "resume_url"
+        ],
+        "type": "object"
+      },
+      "name": "careers_submit_application",
+      "outputSchema": {
+        "properties": {
+          "confirm_url": {
+            "description": "Give this to the person; nothing is sent until they open it.",
+            "type": "string"
+          },
+          "expires_in_minutes": {
+            "type": "integer"
+          },
+          "next_step": {
+            "type": "string"
+          },
+          "status": {
+            "const": "awaiting_confirmation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "confirm_url",
+          "expires_in_minutes",
+          "next_step"
+        ],
+        "type": "object"
+      },
+      "title": "Send an application to NimbleBrain"
+    }
+  ]
+}
