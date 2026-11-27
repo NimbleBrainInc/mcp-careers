@@ -1,6 +1,6 @@
 [project]
 name = "mcp-careers"
-version = "0.1.1"
+version = "0.1.2"
 description = "Apply to NimbleBrain through your agent"
 readme = "README.md"
 license = { text = "MIT" }

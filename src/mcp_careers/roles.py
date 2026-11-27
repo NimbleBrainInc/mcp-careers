@@ -1,11 +1,23 @@
-"""The open roles, from roles.yaml, filtered to the running environment."""
+"""The deployment's careers config: who is hiring, the question, and the open roles.
+
+The config is the deployment's, not this repository's. It arrives as the YAML itself in
+CAREERS_CONFIG, or as a path in CAREERS_CONFIG_FILE (examples/careers.yaml has the shape).
+The server refuses to start without one, so a deployment never comes up with another's roles.
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-ROLES_FILE = Path(__file__).parent / "roles.yaml"
+from mcp_careers.config import Settings
+
+MAX_QUESTION_CHARS = 500
+ROLE_KEYS = {"id", "title", "location", "type", "summary"}
+
+
+class CareersConfigError(Exception):
+    """The careers config is missing or malformed; the message says what to fix."""
 
 
 @dataclass(frozen=True)
@@ -15,35 +27,81 @@ class Role:
     location: str
     summary: str
     type: str | None = None
-    pay_range: str | None = None
-
-    def public(self) -> dict[str, str | None]:
-        """The role as an agent sees it; a field the role does not set is None."""
-        fields = {
-            "id": self.id,
-            "title": self.title,
-            "location": self.location,
-            "type": self.type,
-            "pay_range": self.pay_range,
-            "summary": self.summary,
-        }
-        return fields
 
 
-def load_roles(env: str, path: Path = ROLES_FILE) -> dict[str, Role]:
-    """The roles that show in `env`, keyed by id, in file order."""
-    data = yaml.safe_load(path.read_text())
-    roles: dict[str, Role] = {}
-    for entry in data.get("roles", []):
-        if env not in entry.get("environments", []):
-            continue
-        role = Role(
-            id=entry["id"],
-            title=entry["title"],
-            location=entry["location"],
-            summary=entry["summary"],
-            type=entry.get("type"),
-            pay_range=entry.get("pay_range"),
+@dataclass(frozen=True)
+class Careers:
+    about: str
+    question: str
+    roles: dict[str, Role]
+
+
+def _text(settings: Settings) -> str:
+    if settings.careers_config:
+        return settings.careers_config
+    if settings.careers_config_file:
+        try:
+            return Path(settings.careers_config_file).read_text()
+        except OSError as e:
+            raise CareersConfigError(
+                f"CAREERS_CONFIG_FILE cannot be read: {settings.careers_config_file}"
+            ) from e
+    raise CareersConfigError(
+        "No careers config: set CAREERS_CONFIG (the YAML) or CAREERS_CONFIG_FILE (a path). "
+        "examples/careers.yaml has the shape."
+    )
+
+
+def _str(entry: dict, key: str, where: str, *, required: bool = True) -> str | None:
+    value = entry.get(key)
+    if value is None and not required:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise CareersConfigError(f"{where}: `{key}` must be a non-empty string.")
+    return value.strip()
+
+
+def parse(text: str) -> Careers:
+    """Read and check a careers config; raises CareersConfigError naming what is wrong."""
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as e:
+        raise CareersConfigError(f"The careers config is not valid YAML: {e}") from e
+    if not isinstance(data, dict):
+        raise CareersConfigError(
+            "The careers config must be a mapping with about, question, roles."
         )
-        roles[role.id] = role
-    return roles
+    about = _str(data, "about", "careers config")
+    question = _str(data, "question", "careers config")
+    assert about is not None and question is not None
+    if len(question) > MAX_QUESTION_CHARS:
+        raise CareersConfigError(f"`question` must be at most {MAX_QUESTION_CHARS} characters.")
+    entries = data.get("roles")
+    if not isinstance(entries, list):
+        raise CareersConfigError("`roles` must be a list (it may be empty).")
+    roles: dict[str, Role] = {}
+    for i, entry in enumerate(entries):
+        where = f"roles[{i}]"
+        if not isinstance(entry, dict):
+            raise CareersConfigError(f"{where} must be a mapping.")
+        unknown = set(entry) - ROLE_KEYS
+        if unknown:
+            raise CareersConfigError(
+                f"{where}: unknown key(s) {sorted(unknown)}; a role takes {sorted(ROLE_KEYS)}."
+            )
+        role_id = _str(entry, "id", where)
+        assert role_id is not None
+        if role_id in roles:
+            raise CareersConfigError(f"{where}: duplicate role id `{role_id}`.")
+        roles[role_id] = Role(
+            id=role_id,
+            title=_str(entry, "title", where) or "",
+            location=_str(entry, "location", where) or "",
+            summary=_str(entry, "summary", where) or "",
+            type=_str(entry, "type", where, required=False),
+        )
+    return Careers(about=about, question=question, roles=roles)
+
+
+def load(settings: Settings) -> Careers:
+    return parse(_text(settings))

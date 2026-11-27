@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 MAX_NAME = 100
 MAX_EMAIL = 254
 MAX_URL = 500
+MIN_NOTE_WORDS = 50
 MAX_NOTE_WORDS = 300
 # A cap in characters too, so a note always fits one Slack block untrimmed.
 MAX_NOTE_CHARS = 2_000
@@ -26,7 +27,7 @@ class Application:
     name: str
     email: str
     resume_url: str
-    link: str = ""
+    profile_url: str = ""
     note: str = ""
 
     def to_dict(self) -> dict[str, str]:
@@ -56,7 +57,7 @@ def _url_problem(url: str) -> str | None:
     return None
 
 
-def problems(app: Application, open_roles: set[str]) -> list[str]:
+def problems(app: Application, open_roles: set[str], question: str) -> list[str]:
     """Everything wrong with an application, each as an instruction the agent can act on."""
     found: list[str] = []
 
@@ -74,18 +75,19 @@ def problems(app: Application, open_roles: set[str]) -> list[str]:
 
     if problem := _url_problem(app.resume_url):
         found.append(
-            f"`resume_url` {problem}. It must be an https link to a resume or a profile that "
-            "opens without signing in."
+            f"`resume_url` {problem}. It must be an https link to a resume (a PDF or a "
+            "document) that opens without signing in."
         )
 
-    if app.link and (problem := _url_problem(app.link)):
-        found.append(f"`link` {problem}. Leave it empty if there is nothing to link.")
+    if app.profile_url and (problem := _url_problem(app.profile_url)):
+        found.append(f"`profile_url` {problem}. Leave it empty if there is no profile.")
 
     words = word_count(app.note)
-    if words > MAX_NOTE_WORDS or len(app.note) > MAX_NOTE_CHARS:
+    if not MIN_NOTE_WORDS <= words <= MAX_NOTE_WORDS or len(app.note) > MAX_NOTE_CHARS:
         found.append(
-            f"`note` must be at most {MAX_NOTE_WORDS} words and {MAX_NOTE_CHARS:,} characters "
-            f"(it has {words} words, {len(app.note):,} characters)."
+            f"`note` must be {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words and at most "
+            f"{MAX_NOTE_CHARS:,} characters (it has {words} words, {len(app.note):,} characters), "
+            f"written by the applicant, answering: {question}"
         )
 
     return found
@@ -97,6 +99,6 @@ def normalized(app: Application) -> Application:
         name=app.name.strip(),
         email=app.email.strip(),
         resume_url=app.resume_url.strip(),
-        link=app.link.strip(),
+        profile_url=app.profile_url.strip(),
         note=app.note.strip(),
     )

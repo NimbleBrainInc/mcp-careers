@@ -3,7 +3,7 @@
   "name": "ai.nimblebrain/careers",
   "title": "NimbleBrain Careers",
   "description": "Apply to NimbleBrain through your agent: see the open roles and send your resume.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "websiteUrl": "https://nimblebrain.ai/careers",
   "repository": {
     "url": "https://github.com/NimbleBrainInc/mcp-careers",

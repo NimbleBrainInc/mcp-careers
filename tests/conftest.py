@@ -1,23 +1,36 @@
 """Shared fixtures: an in-memory Redis, ready settings, and recorded outbound calls."""
 
+import os
 from dataclasses import replace
+from pathlib import Path
 
-import fakeredis
-import pytest
+# The server loads its careers config at import, so point it at the example first.
+os.environ.setdefault(
+    "CAREERS_CONFIG_FILE", str(Path(__file__).parent.parent / "examples" / "careers.yaml")
+)
 
-from mcp_careers import config, outbound, server
-from mcp_careers.store import Store
+import fakeredis  # noqa: E402
+import pytest  # noqa: E402
 
-NOTE = "I have run agents in production for two years and want to build the platform."
+from mcp_careers import config, outbound, server  # noqa: E402
+from mcp_careers.store import Store  # noqa: E402
+
+NOTE = (
+    "I built an agent that reconciles our weekly ledger against the bank feed. For the first "
+    "month it matched transactions by amount alone, so two equal payments on the same day "
+    "were swapped and nobody noticed until the month-end close. I caught it by spot-checking "
+    "ten matches by hand and finding two wrong. Now it matches on amount, date and reference, "
+    "and flags anything ambiguous for a person instead of guessing."
+)
 
 
 def good_args(**overrides: str) -> dict[str, str]:
     args = {
-        "role": "test-agent-engineer",
+        "role": "agent-engineer",
         "name": "Ada Lovelace",
         "email": "ada@example.com",
         "resume_url": "https://example.com/ada.pdf",
-        "link": "https://github.com/ada/agent-tools",
+        "profile_url": "https://github.com/ada",
         "note": NOTE,
     }
     args.update(overrides)
@@ -45,7 +58,6 @@ class Outbound:
 def ready_settings(monkeypatch: pytest.MonkeyPatch):
     settings = replace(
         config.settings,
-        env="development",
         public_url="https://careers.test",
         slack_webhook_url="https://hooks.slack.test/x",
         turnstile_site_key="site-key",

@@ -1,0 +1,27 @@
+# An example careers config. A deployment supplies its own, as the YAML itself in
+# CAREERS_CONFIG or as a path in CAREERS_CONFIG_FILE; the server refuses to start without
+# one. This file is for local runs and the tests, and its content is made up.
+
+# Who is hiring, in their own words. Returned to the agent by careers_list_roles.
+about: >-
+  Example Co builds tools that help small teams run their work with agents.
+
+# The one question every applicant answers in their own words (50 to 300 words).
+question: >-
+  What's something you've built or automated with an agent, and what did it get wrong
+  before you got it right?
+
+# The open roles. `id` is what the agent sends back; `type` is optional.
+roles:
+  - id: agent-engineer
+    title: Agent Engineer
+    location: Remote
+    type: Full time
+    summary: >-
+      Build the MCP servers and skills our customers' agents use, and help customers run
+      their work on them.
+  - id: open-application
+    title: Open application
+    location: Remote
+    summary: >-
+      Don't see your role? Tell us what you'd build here.

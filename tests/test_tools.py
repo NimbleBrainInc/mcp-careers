@@ -50,24 +50,13 @@ async def test_every_parameter_is_described(mode: Mode) -> None:
 @pytest.mark.parametrize("mode", MODES)
 async def test_list_roles_names_the_open_roles(mode: Mode) -> None:
     data = (await call(mode, "careers_list_roles", {})).structured_content
-    assert [r["id"] for r in data["roles"]] == [
-        "test-agent-engineer",
-        "forward-deployed-engineer",
-        "open-application",
-    ]
-    fde = data["roles"][1]
-    assert fde["location"] == "Remote" and fde["type"] == "Contract to hire"
-    assert fde.get("pay_range") is None
+    assert [r["id"] for r in data["roles"]] == ["agent-engineer", "open-application"]
+    first, second = data["roles"]
+    assert first["type"] == "Full time" and second.get("type") is None
+    assert data["about"].startswith("Example Co")
     assert "careers_submit_application" in data["how_to_apply"]
-
-
-async def test_production_shows_real_roles_and_never_the_test_role(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(config, "settings", replace(config.settings, env="production"))
-    result = await call("auto", "careers_list_roles", {})
-    ids = [r["id"] for r in result.structured_content["roles"]]
-    assert ids == ["forward-deployed-engineer", "open-application"]
+    assert data["question"].startswith("What's something you've built or automated")
+    assert "other_way_to_apply" not in data
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -82,10 +71,18 @@ async def test_a_good_application_returns_a_confirm_link_and_posts_nothing(
     assert calls.posts == []
 
 
-async def test_link_and_note_are_optional() -> None:
+async def test_profile_url_is_optional() -> None:
     args = good_args()
-    del args["link"], args["note"]
+    del args["profile_url"]
     assert not (await call("auto", "careers_submit_application", args)).is_error
+
+
+async def test_a_short_answer_is_bad_input_and_quotes_the_question() -> None:
+    error = (
+        await call("auto", "careers_submit_application", good_args(note="too short"))
+    ).structured_content["error"]
+    assert error["code"] == "bad_input"
+    assert "`note`" in error["message"] and "what did it get wrong" in error["message"]
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -103,11 +100,11 @@ async def test_every_problem_is_listed_at_once(mode: Mode) -> None:
 
 
 async def test_a_malformed_link_is_bad_input() -> None:
-    args = good_args(resume_url="https://[broken", link="https://[broken")
+    args = good_args(resume_url="https://[broken", profile_url="https://[broken")
     result = await call("auto", "careers_submit_application", args)
     error = result.structured_content["error"]
     assert error["code"] == "bad_input"
-    assert "`resume_url`" in error["message"] and "`link`" in error["message"]
+    assert "`resume_url`" in error["message"] and "`profile_url`" in error["message"]
 
 
 async def test_an_unknown_role_is_bad_input() -> None:
@@ -138,7 +135,7 @@ async def test_too_many_calls_from_one_ip_are_rate_limited(monkeypatch: pytest.M
     assert result.structured_content["error"]["code"] == "rate_limited"
 
 
-async def test_not_configured_is_internal_and_points_to_email(
+async def test_not_configured_is_internal_and_names_no_other_channel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "settings", replace(config.settings, slack_webhook_url=None))
@@ -146,7 +143,7 @@ async def test_not_configured_is_internal_and_points_to_email(
         "error"
     ]
     assert error["code"] == "internal"
-    assert "careers@nimblebrain.ai" in error["message"]
+    assert "@" not in error["message"]
 
 
 async def test_every_error_message_starts_with_its_code(store) -> None:

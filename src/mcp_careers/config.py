@@ -10,8 +10,10 @@ def _int(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
-    # Which roles show: a role lists the environments it appears in (roles.yaml).
-    env: str = os.getenv("CAREERS_ENV", "development")
+    # The deployment's careers config (about, question, roles; see examples/careers.yaml):
+    # the YAML itself, or a path to it. The YAML wins when both are set.
+    careers_config: str | None = os.getenv("CAREERS_CONFIG") or None
+    careers_config_file: str | None = os.getenv("CAREERS_CONFIG_FILE") or None
     # The origin the confirmation link is built on, with no trailing slash.
     public_url: str = os.getenv("CAREERS_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
     redis_url: str = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")

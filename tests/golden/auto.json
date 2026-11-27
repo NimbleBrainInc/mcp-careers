@@ -5,7 +5,7 @@
   "resources": [
     {
       "mimeType": "text/markdown",
-      "sha256": "e40e5afb7726454648969e6823d7d87d7e4e963bbe96a4805251251308203a50",
+      "sha256": "2e6e9b15c37f726d8491f8c6421f116ac540719b0f3c68cbf13b85e1efd48543",
       "uri": "skill://apply-to-nimblebrain/SKILL.md"
     }
   ],
@@ -28,7 +28,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "List NimbleBrain's open roles and how to apply.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is\nhiring for, before calling careers_submit_application. It returns who NimbleBrain is, each\nopen role (id, title, location, pay range, summary), and what an application needs. When\nno role is open, say so and offer the email address in `other_way_to_apply`.",
+      "description": "List NimbleBrain's open roles and how to apply.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is\nhiring for, before calling careers_submit_application. It returns who NimbleBrain is, each\nopen role (id, title, location, type, summary), the question every applicant\nanswers, and what an application needs. When no role is open, say so.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {},
@@ -38,15 +38,15 @@
       "outputSchema": {
         "properties": {
           "about": {
-            "description": "Who NimbleBrain is, in NimbleBrain's own words.",
+            "description": "Who is hiring, in their own words.",
             "type": "string"
           },
           "how_to_apply": {
             "description": "What an application needs and what happens after.",
             "type": "string"
           },
-          "other_way_to_apply": {
-            "description": "For a person who would rather not use an agent.",
+          "question": {
+            "description": "The question every applicant answers in `note`.",
             "type": "string"
           },
           "roles": {
@@ -59,18 +59,6 @@
                 },
                 "location": {
                   "type": "string"
-                },
-                "pay_range": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "default": null,
-                  "description": "Null when the role does not state one."
                 },
                 "summary": {
                   "type": "string"
@@ -105,8 +93,8 @@
         "required": [
           "about",
           "roles",
-          "how_to_apply",
-          "other_way_to_apply"
+          "question",
+          "how_to_apply"
         ],
         "type": "object"
       },
@@ -132,22 +120,21 @@
             "description": "The applicant's email address. NimbleBrain replies here.",
             "type": "string"
           },
-          "link": {
-            "default": "",
-            "description": "Optional. An https link to something the applicant has built with agents (a repo, a skill, a demo). Leave empty if there is none.",
-            "type": "string"
-          },
           "name": {
             "description": "The applicant's full name, one line.",
             "type": "string"
           },
           "note": {
+            "description": "Required. The applicant's answer to the `question` that careers_list_roles returns, 50 to 300 words, in their own words. Ask it word for word. Help them tighten an answer they wrote; never write one for them.",
+            "type": "string"
+          },
+          "profile_url": {
             "default": "",
-            "description": "Optional. Up to 300 words the applicant wrote themselves: why NimbleBrain, or anything they want the team to know. Do not write one for them. Leave empty if they have none.",
+            "description": "Optional. An https link to the applicant's LinkedIn, GitHub, or personal site. Leave empty if they have none.",
             "type": "string"
           },
           "resume_url": {
-            "description": "An https link to the applicant's resume or a profile such as LinkedIn. It must open for someone who is not signed in: a public document, not a private file.",
+            "description": "An https link to the applicant's resume, a PDF or a document. It must open for someone who is not signed in: a public document, not a private file.",
             "type": "string"
           },
           "role": {
@@ -159,7 +146,8 @@
           "role",
           "name",
           "email",
-          "resume_url"
+          "resume_url",
+          "note"
         ],
         "type": "object"
       },

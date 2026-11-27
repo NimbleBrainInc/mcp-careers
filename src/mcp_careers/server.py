@@ -7,7 +7,6 @@ the team's Slack channel. Nothing is stored beyond expiring keys in Redis.
 
 import logging
 import sys
-from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import parse_qs
@@ -29,10 +28,17 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
 from mcp_careers import __version__, config, outbound
-from mcp_careers.pages import FALLBACK_EMAIL, confirm_page, message_page
-from mcp_careers.roles import Role, load_roles
+from mcp_careers import roles as careers_config
+from mcp_careers.pages import confirm_page, message_page
+from mcp_careers.roles import Careers, Role
 from mcp_careers.store import Store
-from mcp_careers.submission import MAX_NOTE_WORDS, Application, normalized, problems
+from mcp_careers.submission import (
+    MAX_NOTE_WORDS,
+    MIN_NOTE_WORDS,
+    Application,
+    normalized,
+    problems,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,13 +49,6 @@ logger = logging.getLogger("mcp_careers")
 
 SKILL_DIR = Path(__file__).parent / "skills" / "apply-to-nimblebrain"
 
-ABOUT = (
-    "NimbleBrain is an open-source platform for running your business on AI. Everything is "
-    "included: agents, the apps they work in (a CRM, to-dos, memory, research and "
-    "automations) and 1,000+ connectors, on any model, in your own infrastructure. Our team "
-    "sets it up and runs it with you, or you run it yourself."
-)
-FALLBACK = f"Email {FALLBACK_EMAIL} with a resume or a profile link."
 
 # The Server Card's title and description, restated in server.json (a test holds them equal).
 TITLE = "NimbleBrain Careers"
@@ -94,13 +93,13 @@ def set_store(store: Store | None) -> None:
     _store = store
 
 
-@lru_cache(maxsize=4)
-def _roles_for(env: str) -> dict[str, Role]:
-    return load_roles(env)
+# The deployment's careers config, read once at import: a missing or malformed config stops
+# the process before it serves anything, with a message naming what to fix.
+CAREERS: Careers = careers_config.load(config.settings)
 
 
 def open_roles() -> dict[str, Role]:
-    return _roles_for(config.settings.env)
+    return CAREERS.roles
 
 
 def client_ip(request: Request | None) -> str:
@@ -130,8 +129,7 @@ def _current_request() -> Request | None:
 def _store_failure(e: RedisError) -> ServiceError:
     return ServiceError(
         ErrorCode.INTERNAL,
-        f"internal: applications can't be taken right now. Try again in a few minutes, or "
-        f"{FALLBACK}",
+        "internal: applications can't be taken right now. Try again in a few minutes.",
         retryable=True,
         detail=f"redis: {e}",
     )
@@ -155,17 +153,14 @@ class OpenRole(BaseModel):
     type: str | None = Field(
         default=None, description="Such as contract to hire. Null when not set."
     )
-    pay_range: str | None = Field(
-        default=None, description="Null when the role does not state one."
-    )
     summary: str
 
 
 class RolesResult(BaseModel):
-    about: str = Field(description="Who NimbleBrain is, in NimbleBrain's own words.")
+    about: str = Field(description="Who is hiring, in their own words.")
     roles: list[OpenRole] = Field(description="The open roles. Empty when none are open.")
+    question: str = Field(description="The question every applicant answers in `note`.")
     how_to_apply: str = Field(description="What an application needs and what happens after.")
-    other_way_to_apply: str = Field(description="For a person who would rather not use an agent.")
 
 
 class SubmitResult(BaseModel):
@@ -178,12 +173,12 @@ class SubmitResult(BaseModel):
 
 
 HOW_TO_APPLY = (
-    "Call careers_submit_application with the role id, the person's name and email, and an "
-    "https link to their resume or a profile (such as LinkedIn) that opens without signing in. "
-    "Optionally add `link`, something they have built with agents, and `note`, up to "
-    f"{MAX_NOTE_WORDS} words in their own words. The result holds a confirm_url: the person "
-    "opens it, passes a quick human check, and only then is the application sent. One "
-    "application per email address every 60 days."
+    "Call careers_submit_application with the role id, the person's name and email, an https "
+    "link to their resume (a PDF or a document) that opens without signing in, and `note`: "
+    f"their answer to `question`, {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words in their own words. "
+    "Optionally add `profile_url`: their LinkedIn, GitHub, or personal site. The result holds a "
+    "confirm_url: the person opens it, passes a quick human check, and only then is the "
+    "application sent. One application per email address every 60 days."
 )
 
 
@@ -201,25 +196,24 @@ async def careers_list_roles() -> RolesResult:
 
     Call this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is
     hiring for, before calling careers_submit_application. It returns who NimbleBrain is, each
-    open role (id, title, location, pay range, summary), and what an application needs. When
-    no role is open, say so and offer the email address in `other_way_to_apply`.
+    open role (id, title, location, type, summary), the question every applicant
+    answers, and what an application needs. When no role is open, say so.
     """
     logger.info("event=list_roles")
     return RolesResult(
-        about=ABOUT,
+        about=CAREERS.about,
         roles=[
             OpenRole(
                 id=r.id,
                 title=r.title,
                 location=r.location,
                 type=r.type,
-                pay_range=r.pay_range,
                 summary=r.summary,
             )
             for r in open_roles().values()
         ],
+        question=CAREERS.question,
         how_to_apply=HOW_TO_APPLY,
-        other_way_to_apply=FALLBACK,
     )
 
 
@@ -237,28 +231,27 @@ async def careers_submit_application(
         str,
         Field(
             description=(
-                "An https link to the applicant's resume or a profile such as LinkedIn. It "
-                "must open for someone who is not signed in: a public document, not a "
-                "private file."
+                "An https link to the applicant's resume, a PDF or a document. It must open for "
+                "someone who is not signed in: a public document, not a private file."
             )
         ),
     ],
-    link: Annotated[
-        str,
-        Field(
-            description=(
-                "Optional. An https link to something the applicant has built with agents "
-                "(a repo, a skill, a demo). Leave empty if there is none."
-            )
-        ),
-    ] = "",
     note: Annotated[
         str,
         Field(
             description=(
-                f"Optional. Up to {MAX_NOTE_WORDS} words the applicant wrote themselves: why "
-                "NimbleBrain, or anything they want the team to know. Do not write one for "
-                "them. Leave empty if they have none."
+                "Required. The applicant's answer to the `question` that careers_list_roles "
+                f"returns, {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words, in their own words. Ask it "
+                "word for word. Help them tighten an answer they wrote; never write one for them."
+            )
+        ),
+    ],
+    profile_url: Annotated[
+        str,
+        Field(
+            description=(
+                "Optional. An https link to the applicant's LinkedIn, GitHub, or personal site. "
+                "Leave empty if they have none."
             )
         ),
     ] = "",
@@ -277,12 +270,19 @@ async def careers_submit_application(
     if not s.ready():
         raise ServiceError(
             ErrorCode.INTERNAL,
-            f"internal: applications aren't open right now. {FALLBACK}",
+            "internal: applications aren't open right now. Try again later.",
             detail="slack webhook or turnstile keys are not configured",
         )
     store = get_store()
     app = normalized(
-        Application(role=role, name=name, email=email, resume_url=resume_url, link=link, note=note)
+        Application(
+            role=role,
+            name=name,
+            email=email,
+            resume_url=resume_url,
+            profile_url=profile_url,
+            note=note,
+        )
     )
     try:
         calls = await store.count_submit_call(client_ip(_current_request()))
@@ -293,7 +293,7 @@ async def careers_submit_application(
                 "Try again in an hour.",
                 retryable=True,
             )
-        found = problems(app, set(open_roles()))
+        found = problems(app, set(open_roles()), CAREERS.question)
         if found:
             raise ServiceError(
                 ErrorCode.BAD_INPUT,
@@ -303,8 +303,7 @@ async def careers_submit_application(
             raise ServiceError(
                 ErrorCode.CONFLICT,
                 f"conflict: this email address has applied in the last {s.dedupe_days} days, and "
-                "that application stands. Do not resubmit with another address. To add "
-                f"something to it, email {FALLBACK_EMAIL}.",
+                "that application stands. Do not resubmit with another address.",
             )
         if await store.posted_today() >= s.daily_cap:
             raise ServiceError(
@@ -359,7 +358,9 @@ async def confirm(request: Request) -> HTMLResponse:
     s = config.settings
     token = request.path_params["token"]
     if not s.ready():
-        return _html(message_page("Not open right now", FALLBACK), 503)
+        return _html(
+            message_page("Not open right now", "Applications aren't open. Try again later."), 503
+        )
     store = get_store()
     site_key = s.turnstile_site_key or ""
     secret = s.turnstile_secret_key or ""
@@ -398,7 +399,7 @@ async def confirm(request: Request) -> HTMLResponse:
                 message_page(
                     "You've already applied",
                     f"This email address has applied in the last {s.dedupe_days} days, and that "
-                    f"application stands. To add something to it, email {FALLBACK_EMAIL}.",
+                    "application stands.",
                 ),
                 409,
             )
@@ -414,7 +415,9 @@ async def confirm(request: Request) -> HTMLResponse:
             )
 
         try:
-            await outbound.post_to_slack(webhook, outbound.application_message(app, role))
+            await outbound.post_to_slack(
+                webhook, outbound.application_message(app, role, CAREERS.question)
+            )
         except outbound.OutboundError as e:
             logger.error("slack post failed: %s", e)
             await store.unreserve(app.email)
@@ -427,9 +430,7 @@ async def confirm(request: Request) -> HTMLResponse:
             )
     except RedisError as e:
         logger.error("redis failed on confirm: %s", e)
-        return _html(
-            message_page("Something went wrong", f"Please try again shortly. {FALLBACK}"), 503
-        )
+        return _html(message_page("Something went wrong", "Please try again shortly."), 503)
 
     logger.info("event=confirmed role=%s", app.role)
     return _html(
