@@ -13,6 +13,7 @@ import yaml
 from mcp_careers.config import Settings
 
 MAX_QUESTION_CHARS = 500
+ROLE_KEYS = {"id", "title", "location", "type", "summary"}
 
 
 class CareersConfigError(Exception):
@@ -26,7 +27,6 @@ class Role:
     location: str
     summary: str
     type: str | None = None
-    pay_range: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +84,11 @@ def parse(text: str) -> Careers:
         where = f"roles[{i}]"
         if not isinstance(entry, dict):
             raise CareersConfigError(f"{where} must be a mapping.")
+        unknown = set(entry) - ROLE_KEYS
+        if unknown:
+            raise CareersConfigError(
+                f"{where}: unknown key(s) {sorted(unknown)}; a role takes {sorted(ROLE_KEYS)}."
+            )
         role_id = _str(entry, "id", where)
         assert role_id is not None
         if role_id in roles:
@@ -94,7 +99,6 @@ def parse(text: str) -> Careers:
             location=_str(entry, "location", where) or "",
             summary=_str(entry, "summary", where) or "",
             type=_str(entry, "type", where, required=False),
-            pay_range=_str(entry, "pay_range", where, required=False),
         )
     return Careers(about=about, question=question, roles=roles)
 

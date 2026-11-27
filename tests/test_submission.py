@@ -21,13 +21,13 @@ def test_a_good_application_has_no_problems() -> None:
 def test_links_must_be_plain_https() -> None:
     for url in ("http://x.test/cv", "javascript:alert(1)", "https://x.test/a|b", "https:///cv"):
         assert any("`resume_url`" in p for p in problems(app(resume_url=url), ROLES, Q)), url
-        assert any("`link`" in p for p in problems(app(link=url), ROLES, Q)), url
+        assert any("`profile_url`" in p for p in problems(app(profile_url=url), ROLES, Q)), url
 
 
 def test_a_malformed_link_is_a_problem_not_an_error() -> None:
     url = "https://[broken"
     assert any("`resume_url`" in p for p in problems(app(resume_url=url), ROLES, Q))
-    assert any("`link`" in p for p in problems(app(link=url), ROLES, Q))
+    assert any("`profile_url`" in p for p in problems(app(profile_url=url), ROLES, Q))
 
 
 def test_a_note_over_the_character_cap_is_refused() -> None:
@@ -35,7 +35,7 @@ def test_a_note_over_the_character_cap_is_refused() -> None:
 
 
 def test_an_empty_link_is_fine() -> None:
-    assert problems(app(link=""), ROLES, Q) == []
+    assert problems(app(profile_url=""), ROLES, Q) == []
 
 
 def test_the_answer_is_required() -> None:
@@ -69,7 +69,7 @@ def test_the_message_leads_with_who_applied_for_what() -> None:
     first = message["blocks"][0]["text"]["text"]
     assert first.startswith(":inbox_tray: *Ada Lovelace* applied for *Agent Engineer*")
     assert first.count("\n•  ") == 3
-    assert "|example.com/ada.pdf>" in first and "|github.com/ada/agent-tools>" in first
+    assert "|example.com/ada.pdf>" in first and "|github.com/ada>" in first
     assert message["text"] == "Ada Lovelace applied for Agent Engineer"
 
 

@@ -153,9 +153,6 @@ class OpenRole(BaseModel):
     type: str | None = Field(
         default=None, description="Such as contract to hire. Null when not set."
     )
-    pay_range: str | None = Field(
-        default=None, description="Null when the role does not state one."
-    )
     summary: str
 
 
@@ -177,10 +174,10 @@ class SubmitResult(BaseModel):
 
 HOW_TO_APPLY = (
     "Call careers_submit_application with the role id, the person's name and email, an https "
-    "link to their resume or a profile (such as LinkedIn) that opens without signing in, and "
-    f"`note`: their answer to `question`, {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words in their "
-    "own words. Optionally add `link`, something they have built with agents. The result holds "
-    "a confirm_url: the person opens it, passes a quick human check, and only then is the "
+    "link to their resume (a PDF or a document) that opens without signing in, and `note`: "
+    f"their answer to `question`, {MIN_NOTE_WORDS} to {MAX_NOTE_WORDS} words in their own words. "
+    "Optionally add `profile_url`: their LinkedIn, GitHub, or personal site. The result holds a "
+    "confirm_url: the person opens it, passes a quick human check, and only then is the "
     "application sent. One application per email address every 60 days."
 )
 
@@ -199,7 +196,7 @@ async def careers_list_roles() -> RolesResult:
 
     Call this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is
     hiring for, before calling careers_submit_application. It returns who NimbleBrain is, each
-    open role (id, title, location, type, pay range, summary), the question every applicant
+    open role (id, title, location, type, summary), the question every applicant
     answers, and what an application needs. When no role is open, say so.
     """
     logger.info("event=list_roles")
@@ -211,7 +208,6 @@ async def careers_list_roles() -> RolesResult:
                 title=r.title,
                 location=r.location,
                 type=r.type,
-                pay_range=r.pay_range,
                 summary=r.summary,
             )
             for r in open_roles().values()
@@ -235,9 +231,8 @@ async def careers_submit_application(
         str,
         Field(
             description=(
-                "An https link to the applicant's resume or a profile such as LinkedIn. It "
-                "must open for someone who is not signed in: a public document, not a "
-                "private file."
+                "An https link to the applicant's resume, a PDF or a document. It must open for "
+                "someone who is not signed in: a public document, not a private file."
             )
         ),
     ],
@@ -251,12 +246,12 @@ async def careers_submit_application(
             )
         ),
     ],
-    link: Annotated[
+    profile_url: Annotated[
         str,
         Field(
             description=(
-                "Optional. An https link to something the applicant has built with agents "
-                "(a repo, a skill, a demo). Leave empty if there is none."
+                "Optional. An https link to the applicant's LinkedIn, GitHub, or personal site. "
+                "Leave empty if they have none."
             )
         ),
     ] = "",
@@ -280,7 +275,14 @@ async def careers_submit_application(
         )
     store = get_store()
     app = normalized(
-        Application(role=role, name=name, email=email, resume_url=resume_url, link=link, note=note)
+        Application(
+            role=role,
+            name=name,
+            email=email,
+            resume_url=resume_url,
+            profile_url=profile_url,
+            note=note,
+        )
     )
     try:
         calls = await store.count_submit_call(client_ip(_current_request()))

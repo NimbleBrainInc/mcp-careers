@@ -62,5 +62,12 @@ def test_a_malformed_config_refuses_naming_the_problem(text: str, names: str) ->
         parse(text)
 
 
+def test_an_unknown_role_key_is_refused() -> None:
+    with pytest.raises(CareersConfigError, match="team"):
+        parse(
+            "about: x\nquestion: y\nroles:\n  - {id: a, title: A, location: R, summary: S, team: X}"
+        )
+
+
 def test_no_open_roles_is_allowed() -> None:
     assert parse("about: x\nquestion: y\nroles: []").roles == {}

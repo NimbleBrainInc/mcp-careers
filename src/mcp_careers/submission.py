@@ -27,7 +27,7 @@ class Application:
     name: str
     email: str
     resume_url: str
-    link: str = ""
+    profile_url: str = ""
     note: str = ""
 
     def to_dict(self) -> dict[str, str]:
@@ -75,12 +75,12 @@ def problems(app: Application, open_roles: set[str], question: str) -> list[str]
 
     if problem := _url_problem(app.resume_url):
         found.append(
-            f"`resume_url` {problem}. It must be an https link to a resume or a profile that "
-            "opens without signing in."
+            f"`resume_url` {problem}. It must be an https link to a resume (a PDF or a "
+            "document) that opens without signing in."
         )
 
-    if app.link and (problem := _url_problem(app.link)):
-        found.append(f"`link` {problem}. Leave it empty if there is nothing to link.")
+    if app.profile_url and (problem := _url_problem(app.profile_url)):
+        found.append(f"`profile_url` {problem}. Leave it empty if there is no profile.")
 
     words = word_count(app.note)
     if not MIN_NOTE_WORDS <= words <= MAX_NOTE_WORDS or len(app.note) > MAX_NOTE_CHARS:
@@ -99,6 +99,6 @@ def normalized(app: Application) -> Application:
         name=app.name.strip(),
         email=app.email.strip(),
         resume_url=app.resume_url.strip(),
-        link=app.link.strip(),
+        profile_url=app.profile_url.strip(),
         note=app.note.strip(),
     )

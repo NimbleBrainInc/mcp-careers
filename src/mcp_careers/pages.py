@@ -107,8 +107,8 @@ def confirm_page(app: Application, role: Role, site_key: str, *, error: str | No
         _row("Email", escape(app.email)),
         _row("Resume", _link(app.resume_url)),
     ]
-    if app.link:
-        rows.append(_row("Built with agents", _link(app.link)))
+    if app.profile_url:
+        rows.append(_row("Profile", _link(app.profile_url)))
     if app.note:
         preview = (
             app.note if len(app.note) <= NOTE_PREVIEW_CHARS else app.note[:NOTE_PREVIEW_CHARS] + "…"

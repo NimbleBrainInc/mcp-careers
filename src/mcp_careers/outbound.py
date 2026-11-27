@@ -102,8 +102,8 @@ def application_message(app: Application, role: Role, question: str) -> dict:
         f"•  Email: <mailto:{email}|{email}>",
         f"•  Resume: {_link(app.resume_url)}",
     ]
-    if app.link:
-        lines.append(f"•  Built with agents: {_link(app.link)}")
+    if app.profile_url:
+        lines.append(f"•  Profile: {_link(app.profile_url)}")
     blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]
     if app.note:
         blocks += [

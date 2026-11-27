@@ -52,8 +52,7 @@ async def test_list_roles_names_the_open_roles(mode: Mode) -> None:
     data = (await call(mode, "careers_list_roles", {})).structured_content
     assert [r["id"] for r in data["roles"]] == ["agent-engineer", "open-application"]
     first, second = data["roles"]
-    assert first["type"] == "Full time" and first["pay_range"] == "$120k-$160k"
-    assert second.get("type") is None and second.get("pay_range") is None
+    assert first["type"] == "Full time" and second.get("type") is None
     assert data["about"].startswith("Example Co")
     assert "careers_submit_application" in data["how_to_apply"]
     assert data["question"].startswith("What's something you've built or automated")
@@ -72,9 +71,9 @@ async def test_a_good_application_returns_a_confirm_link_and_posts_nothing(
     assert calls.posts == []
 
 
-async def test_link_is_optional() -> None:
+async def test_profile_url_is_optional() -> None:
     args = good_args()
-    del args["link"]
+    del args["profile_url"]
     assert not (await call("auto", "careers_submit_application", args)).is_error
 
 
@@ -101,11 +100,11 @@ async def test_every_problem_is_listed_at_once(mode: Mode) -> None:
 
 
 async def test_a_malformed_link_is_bad_input() -> None:
-    args = good_args(resume_url="https://[broken", link="https://[broken")
+    args = good_args(resume_url="https://[broken", profile_url="https://[broken")
     result = await call("auto", "careers_submit_application", args)
     error = result.structured_content["error"]
     assert error["code"] == "bad_input"
-    assert "`resume_url`" in error["message"] and "`link`" in error["message"]
+    assert "`resume_url`" in error["message"] and "`profile_url`" in error["message"]
 
 
 async def test_an_unknown_role_is_bad_input() -> None:

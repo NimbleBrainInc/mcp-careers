@@ -30,7 +30,7 @@ def good_args(**overrides: str) -> dict[str, str]:
         "name": "Ada Lovelace",
         "email": "ada@example.com",
         "resume_url": "https://example.com/ada.pdf",
-        "link": "https://github.com/ada/agent-tools",
+        "profile_url": "https://github.com/ada",
         "note": NOTE,
     }
     args.update(overrides)

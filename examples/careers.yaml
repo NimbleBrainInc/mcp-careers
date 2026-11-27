@@ -11,13 +11,12 @@ question: >-
   What's something you've built or automated with an agent, and what did it get wrong
   before you got it right?
 
-# The open roles. `id` is what the agent sends back; `type` and `pay_range` are optional.
+# The open roles. `id` is what the agent sends back; `type` is optional.
 roles:
   - id: agent-engineer
     title: Agent Engineer
     location: Remote
     type: Full time
-    pay_range: "$120k-$160k"
     summary: >-
       Build the MCP servers and skills our customers' agents use, and help customers run
       their work on them.
