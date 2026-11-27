@@ -129,3 +129,12 @@ async def test_not_configured_is_internal_and_points_to_email(
     ]
     assert error["code"] == "internal"
     assert "careers@nimblebrain.ai" in error["message"]
+
+
+async def test_every_error_message_starts_with_its_code(store) -> None:
+    """The skill keys its error table by code, and some clients show only the text."""
+    await store.reserve("taken@example.com", daily_cap=10)
+    cases = [good_args(email="nope"), good_args(email="taken@example.com")]
+    for args in cases:
+        error = (await call("auto", "careers_submit_application", args)).structured_content["error"]
+        assert error["message"].startswith(f"{error['code']}: "), error

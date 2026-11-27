@@ -130,7 +130,8 @@ def _current_request() -> Request | None:
 def _store_failure(e: RedisError) -> ServiceError:
     return ServiceError(
         ErrorCode.INTERNAL,
-        f"Applications can't be taken right now. Try again in a few minutes, or {FALLBACK}",
+        f"internal: applications can't be taken right now. Try again in a few minutes, or "
+        f"{FALLBACK}",
         retryable=True,
         detail=f"redis: {e}",
     )
@@ -261,7 +262,7 @@ async def careers_submit_application(
     if not s.ready():
         raise ServiceError(
             ErrorCode.INTERNAL,
-            f"Applications aren't open right now. {FALLBACK}",
+            f"internal: applications aren't open right now. {FALLBACK}",
             detail="slack webhook or turnstile keys are not configured",
         )
     store = get_store()
@@ -273,24 +274,27 @@ async def careers_submit_application(
         if calls > s.submit_limit_per_hour:
             raise ServiceError(
                 ErrorCode.RATE_LIMITED,
-                "Too many applications from this network in the last hour. Try again in an hour.",
+                "rate_limited: too many applications from this network in the last hour. "
+                "Try again in an hour.",
                 retryable=True,
             )
         found = problems(app, set(open_roles()))
         if found:
             raise ServiceError(
                 ErrorCode.BAD_INPUT,
-                "Fix these, show the person, and submit again:\n- " + "\n- ".join(found),
+                "bad_input: fix these, show the person, and submit again:\n- " + "\n- ".join(found),
             )
         if await store.email_has_applied(app.email):
             raise ServiceError(
                 ErrorCode.CONFLICT,
-                f"This email address has applied in the last {s.dedupe_days} days.",
+                f"conflict: this email address has applied in the last {s.dedupe_days} days, and "
+                "that application stands. Do not resubmit with another address. To add "
+                f"something to it, email {FALLBACK_EMAIL}.",
             )
         if await store.posted_today() >= s.daily_cap:
             raise ServiceError(
                 ErrorCode.RATE_LIMITED,
-                "Today's applications are full. Try again after midnight UTC.",
+                "rate_limited: today's applications are full. Try again after midnight UTC.",
                 retryable=True,
             )
         token = await store.hold(app)
@@ -378,7 +382,8 @@ async def confirm(request: Request) -> HTMLResponse:
             return _html(
                 message_page(
                     "You've already applied",
-                    f"This email address has applied in the last {s.dedupe_days} days.",
+                    f"This email address has applied in the last {s.dedupe_days} days, and that "
+                    f"application stands. To add something to it, email {FALLBACK_EMAIL}.",
                 ),
                 409,
             )

@@ -37,14 +37,20 @@ def word_count(text: str) -> int:
     return len(text.split())
 
 
-def _bad_url(url: str) -> bool:
+def _url_problem(url: str) -> str | None:
+    """What is wrong with a link, in words an agent can act on, or None."""
     parts = urlsplit(url)
-    return (
-        len(url) > MAX_URL
-        or parts.scheme != "https"
-        or not parts.netloc
-        or bool(_URL_FORBIDDEN.search(url))
-    )
+    if not url:
+        return "is empty"
+    if parts.scheme != "https":
+        return "must start with https://"
+    if not parts.netloc:
+        return "has no host"
+    if _URL_FORBIDDEN.search(url):
+        return "contains a space, quote, `<`, `>` or `|`"
+    if len(url) > MAX_URL:
+        return f"is over {MAX_URL} characters"
+    return None
 
 
 def problems(app: Application, open_roles: set[str]) -> list[str]:
@@ -63,14 +69,14 @@ def problems(app: Application, open_roles: set[str]) -> list[str]:
     if len(app.email) > MAX_EMAIL or not _EMAIL.match(app.email):
         found.append("`email` must be a single valid email address.")
 
-    if _bad_url(app.resume_url):
+    if problem := _url_problem(app.resume_url):
         found.append(
-            f"`resume_url` must be an https link of at most {MAX_URL} characters, to a resume "
-            "or a profile anyone can open without signing in."
+            f"`resume_url` {problem}. It must be an https link to a resume or a profile that "
+            "opens without signing in."
         )
 
-    if app.link and _bad_url(app.link):
-        found.append(f"`link` must be an https link of at most {MAX_URL} characters, or empty.")
+    if app.link and (problem := _url_problem(app.link)):
+        found.append(f"`link` {problem}. Leave it empty if there is nothing to link.")
 
     words = word_count(app.note)
     if words > MAX_NOTE_WORDS or len(app.note) > MAX_NOTE_CHARS:

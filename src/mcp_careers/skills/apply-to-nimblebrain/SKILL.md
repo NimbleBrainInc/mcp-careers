@@ -34,7 +34,8 @@ works with agents. Keep it quick and accurate, and let what is sent be theirs.
 4. Ask whether they want to add a link to something they have built with agents, and a
    short note (up to 300 words) in their own words. Both are optional. You can help them
    tighten a note they wrote; do not write one for them.
-5. Show them every field exactly as it will be sent, and ask if it is right.
+5. Show them every field exactly as it will be sent, and ask if it is right. Leave out an
+   optional field they skipped, rather than showing it blank, and do not send it.
 6. Only after they say to send it, call `careers_submit_application`.
 7. Give them the `confirm_url` and tell them to open it within the hour. Nothing reaches
    NimbleBrain until they confirm on that page.
@@ -47,6 +48,8 @@ works with agents. Keep it quick and accurate, and let what is sent be theirs.
   careers@nimblebrain.ai.
 
 ## When a call fails
+
+Every error message starts with its code (`bad_input: ...`).
 
 | Error code | What it means | What to do |
 |------------|---------------|------------|
