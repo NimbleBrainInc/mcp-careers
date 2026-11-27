@@ -59,6 +59,8 @@ async def test_list_roles_names_the_open_roles(mode: Mode) -> None:
     assert fde["location"] == "Remote" and fde["type"] == "Contract to hire"
     assert fde.get("pay_range") is None
     assert "careers_submit_application" in data["how_to_apply"]
+    assert data["question"].startswith("What's something you've built or automated")
+    assert "other_way_to_apply" not in data
 
 
 async def test_production_shows_real_roles_and_never_the_test_role(
@@ -82,10 +84,18 @@ async def test_a_good_application_returns_a_confirm_link_and_posts_nothing(
     assert calls.posts == []
 
 
-async def test_link_and_note_are_optional() -> None:
+async def test_link_is_optional() -> None:
     args = good_args()
-    del args["link"], args["note"]
+    del args["link"]
     assert not (await call("auto", "careers_submit_application", args)).is_error
+
+
+async def test_a_short_answer_is_bad_input_and_quotes_the_question() -> None:
+    error = (
+        await call("auto", "careers_submit_application", good_args(note="too short"))
+    ).structured_content["error"]
+    assert error["code"] == "bad_input"
+    assert "`note`" in error["message"] and "what did it get wrong" in error["message"]
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -138,7 +148,7 @@ async def test_too_many_calls_from_one_ip_are_rate_limited(monkeypatch: pytest.M
     assert result.structured_content["error"]["code"] == "rate_limited"
 
 
-async def test_not_configured_is_internal_and_points_to_email(
+async def test_not_configured_is_internal_and_names_no_other_channel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(config, "settings", replace(config.settings, slack_webhook_url=None))
@@ -146,7 +156,7 @@ async def test_not_configured_is_internal_and_points_to_email(
         "error"
     ]
     assert error["code"] == "internal"
-    assert "careers@nimblebrain.ai" in error["message"]
+    assert "@" not in error["message"]
 
 
 async def test_every_error_message_starts_with_its_code(store) -> None:

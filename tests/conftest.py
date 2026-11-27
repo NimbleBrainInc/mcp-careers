@@ -8,7 +8,13 @@ import pytest
 from mcp_careers import config, outbound, server
 from mcp_careers.store import Store
 
-NOTE = "I have run agents in production for two years and want to build the platform."
+NOTE = (
+    "I built an agent that reconciles our weekly ledger against the bank feed. For the first "
+    "month it matched transactions by amount alone, so two equal payments on the same day "
+    "were swapped and nobody noticed until the month-end close. I caught it by spot-checking "
+    "ten matches by hand and finding two wrong. Now it matches on amount, date and reference, "
+    "and flags anything ambiguous for a person instead of guessing."
+)
 
 
 def good_args(**overrides: str) -> dict[str, str]:

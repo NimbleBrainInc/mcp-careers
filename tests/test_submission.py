@@ -33,8 +33,12 @@ def test_a_note_over_the_character_cap_is_refused() -> None:
     assert any("`note`" in p for p in problems(app(note="x" * 2_001), ROLES))
 
 
-def test_an_empty_link_and_note_are_fine() -> None:
-    assert problems(app(link="", note=""), ROLES) == []
+def test_an_empty_link_is_fine() -> None:
+    assert problems(app(link=""), ROLES) == []
+
+
+def test_the_answer_is_required() -> None:
+    assert any("`note`" in p for p in problems(app(note=""), ROLES))
 
 
 def test_a_multiline_name_is_refused() -> None:
@@ -68,9 +72,9 @@ def test_the_message_leads_with_who_applied_for_what() -> None:
     assert message["text"] == "Ada Lovelace applied for Agent Engineer (test)"
 
 
-def test_no_note_means_no_applicant_text_in_slack() -> None:
-    blocks = application_message(app(note=""), ROLE)["blocks"]
-    assert [b["type"] for b in blocks] == ["section"]
+def test_the_answer_is_labelled_with_its_question() -> None:
+    blocks = application_message(app(), ROLE)["blocks"]
+    assert "what did it get wrong" in blocks[1]["elements"][0]["text"]
 
 
 def test_every_note_line_is_quoted_and_cannot_end_the_quote() -> None:

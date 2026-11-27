@@ -65,7 +65,6 @@ button { width: 100%; font: inherit; font-weight: 600; padding: 14px 20px; borde
   border-radius: 12px; background: var(--accent); color: var(--on-accent); cursor: pointer; }
 button:hover { filter: brightness(1.08); }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.foot { margin: 24px 0 0; font-size: 14px; color: var(--quiet); text-align: center; }
 @media (max-width: 480px) { .card { padding: 24px 20px; } .row { grid-template-columns: 1fr; gap: 2px; } }
 """
 
@@ -74,8 +73,6 @@ _FONT = (
     "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
     "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap'>"
 )
-
-FALLBACK_EMAIL = "careers@nimblebrain.ai"
 
 
 def _page(title: str, body: str, *, turnstile: bool = False) -> str:
@@ -116,7 +113,7 @@ def confirm_page(app: Application, role: Role, site_key: str, *, error: str | No
         preview = (
             app.note if len(app.note) <= NOTE_PREVIEW_CHARS else app.note[:NOTE_PREVIEW_CHARS] + "…"
         )
-        rows.append(_row("Note", escape(preview), "note"))
+        rows.append(_row("Your answer", escape(preview), "note"))
     notice = f"<p class='notice' role='alert'>{escape(error)}</p>" if error else ""
     body = (
         "<div class='card'>"
@@ -125,16 +122,14 @@ def confirm_page(app: Application, role: Role, site_key: str, *, error: str | No
         "NimbleBrain team. One of us will email you.</p>"
         f"{notice}"
         f"<dl class='summary'>{''.join(rows)}</dl>"
-        "<p class='hint'>We open your links without signing in. Check that your resume opens "
-        "in a private window before you send.</p>"
+        "<p class='hint'>Check your resume link in a private window. If it asks you to sign "
+        "in, we won't be able to open it.</p>"
         "<form method='post'>"
         f"<div class='cf-turnstile' data-sitekey='{escape(site_key, quote=True)}' "
         "data-theme='auto' data-size='flexible'></div>"
         "<button type='submit'>Send application</button>"
         "</form>"
         "</div>"
-        "<p class='foot'>This link works once and expires an hour after your agent made it. "
-        f"Prefer email? <a href='mailto:{FALLBACK_EMAIL}'>{FALLBACK_EMAIL}</a></p>"
     )
     return _page("Send your application", body, turnstile=True)
 
@@ -145,6 +140,5 @@ def message_page(title: str, message: str) -> str:
         f"<h1>{escape(title)}</h1>"
         f"<p class='lead' style='margin:0'>{escape(message)}</p>"
         "</div>"
-        f"<p class='foot'>Questions? <a href='mailto:{FALLBACK_EMAIL}'>{FALLBACK_EMAIL}</a></p>"
     )
     return _page(title, body)

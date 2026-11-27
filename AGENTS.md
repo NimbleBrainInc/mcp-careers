@@ -66,7 +66,7 @@ cross the wire run on both protocol eras (`mode="auto"` and `"legacy"`).
 | `CAREERS_TRUSTED_PROXY_HOPS` | `1` | X-Forwarded-For entries from the right that name the client. |
 
 Without the Slack webhook and both Turnstile keys, the submit tool refuses with `internal`
-and points to careers@nimblebrain.ai.
+and says to try again later.
 
 ## Verify
 

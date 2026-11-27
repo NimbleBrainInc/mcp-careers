@@ -5,7 +5,7 @@
   "resources": [
     {
       "mimeType": "text/markdown",
-      "sha256": "e40e5afb7726454648969e6823d7d87d7e4e963bbe96a4805251251308203a50",
+      "sha256": "74dc4bb55b44a48f281204fbed402a6d4958f70d32a269facb846e24b08a2d7a",
       "uri": "skill://apply-to-nimblebrain/SKILL.md"
     }
   ],
@@ -28,7 +28,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "List NimbleBrain's open roles and how to apply.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is\nhiring for, before calling careers_submit_application. It returns who NimbleBrain is, each\nopen role (id, title, location, pay range, summary), and what an application needs. When\nno role is open, say so and offer the email address in `other_way_to_apply`.",
+      "description": "List NimbleBrain's open roles and how to apply.\n\nCall this first whenever someone wants to apply to NimbleBrain or asks what NimbleBrain is\nhiring for, before calling careers_submit_application. It returns who NimbleBrain is, each\nopen role (id, title, location, type, pay range, summary), the question every applicant\nanswers, and what an application needs. When no role is open, say so.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {},
@@ -45,8 +45,8 @@
             "description": "What an application needs and what happens after.",
             "type": "string"
           },
-          "other_way_to_apply": {
-            "description": "For a person who would rather not use an agent.",
+          "question": {
+            "description": "The question every applicant answers in `note`.",
             "type": "string"
           },
           "roles": {
@@ -105,8 +105,8 @@
         "required": [
           "about",
           "roles",
-          "how_to_apply",
-          "other_way_to_apply"
+          "question",
+          "how_to_apply"
         ],
         "type": "object"
       },
@@ -142,8 +142,7 @@
             "type": "string"
           },
           "note": {
-            "default": "",
-            "description": "Optional. Up to 300 words the applicant wrote themselves: why NimbleBrain, or anything they want the team to know. Do not write one for them. Leave empty if they have none.",
+            "description": "Required. The applicant's answer to: What's something you've built or automated with an agent, and what did it get wrong before you got it right? 50 to 300 words, in their own words. Help them tighten an answer they wrote; never write one for them.",
             "type": "string"
           },
           "resume_url": {
@@ -159,7 +158,8 @@
           "role",
           "name",
           "email",
-          "resume_url"
+          "resume_url",
+          "note"
         ],
         "type": "object"
       },
