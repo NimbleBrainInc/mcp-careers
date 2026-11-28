@@ -23,6 +23,24 @@ expiring keys in Redis. Applicants do not sign in.
   as the version (no rebuild), and asks the deploy configuration to point production at
   it. A pushed `v*` tag promotes to production for real; there is no dry run.
 - **Re-run a release** at its tag: `gh workflow run release.yml --ref v0.1.0`.
+- **The MCP Registry listing follows production.** After the production promote, the
+  `publish-registry` job publishes `server.json` to the official MCP Registry as
+  `ai.nimblebrain/careers`, so the listing never names a version production does not run.
+  A re-run of a finished release passes; the registry keeps every version.
+
+## MCP Registry listing
+
+The name `ai.nimblebrain/careers` is permanent: a registry listing can be deprecated, never
+renamed. The registry proves the `ai.nimblebrain` namespace by a `v=MCPv1` TXT record on the
+`nimblebrain.ai` apex, signed by an Ed25519 key held as `MCP_REGISTRY_SIGNING_KEY` in the
+`mcp-registry-publish` environment, which admits `v*` tags only. That key can publish or
+overwrite **any** `ai.nimblebrain/*` server, so it stays an environment secret and release
+tags stay limited to administrators.
+
+The title is "NimbleBrain Careers", not "Careers by NimbleBrain": the second reads as a
+careers product. It still carries the NimbleBrain name to every listing that shows the title
+in place of the name. `server.json` restates the Server Card, and `tests/test_server_card.py`
+holds the two in agreement.
 
 ## Credentials
 

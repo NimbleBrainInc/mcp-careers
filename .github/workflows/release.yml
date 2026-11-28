@@ -139,3 +139,67 @@ jobs:
             -f event_type=prod-image-promoted \
             -f "client_payload[target]=mcp-careers" \
             -f "client_payload[version]=$VERSION"
+
+  # Lists the release on the official MCP Registry as `ai.nimblebrain/careers`, after
+  # production runs it, so the listing never advertises a version production does not run.
+  #
+  # The `mcp-registry-publish` environment admits `v*` tags only, enforced by GitHub
+  # independently of this workflow's trigger, and holds MCP_REGISTRY_SIGNING_KEY: the
+  # Ed25519 key behind the `v=MCPv1` TXT record on the nimblebrain.ai apex. That key can
+  # publish or overwrite ANY `ai.nimblebrain/*` server (deploy/README.md).
+  publish-registry:
+    name: Publish to MCP Registry
+    needs: promote
+    runs-on: ubuntu-latest
+    environment: mcp-registry-publish
+    permissions:
+      contents: read
+    steps:
+      # Before any side effect: a release must not go green with the publish silently skipped.
+      - name: Preflight — signing key present
+        env:
+          KEY: ${{ secrets.MCP_REGISTRY_SIGNING_KEY }}
+        run: |
+          [ -n "$KEY" ] || { echo "::error::MCP_REGISTRY_SIGNING_KEY is not readable from the mcp-registry-publish environment (deploy/README.md)."; exit 1; }
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+
+      # Pinned and checksum-verified: the next step hands this binary a key that can
+      # overwrite any `ai.nimblebrain/*` server, so the bytes are verified, not just the version.
+      - name: Install mcp-publisher
+        env:
+          MCP_PUBLISHER_VERSION: "1.8.0"
+        run: |
+          set -euo pipefail
+          base="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+          asset="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+          curl -fsSL -o "$asset" "$base/$asset"
+          curl -fsSL -o checksums.txt "$base/registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+          grep " ${asset}\$" checksums.txt > asset.sha256
+          sha256sum -c asset.sha256
+          tar xzf "$asset" mcp-publisher
+          rm -f "$asset" checksums.txt asset.sha256
+          ./mcp-publisher --version
+
+      # mcp-publisher takes the key only as an argument; on an ephemeral single-tenant runner
+      # argv is visible only to this job, which already holds the secret in its environment.
+      - name: Authenticate to the registry (DNS)
+        env:
+          SIGNING_KEY: ${{ secrets.MCP_REGISTRY_SIGNING_KEY }}
+        run: ./mcp-publisher login dns --domain nimblebrain.ai --private-key "$SIGNING_KEY"
+
+      # A re-run of a finished release stays green: only the duplicate-version error passes.
+      - name: Publish
+        run: |
+          set -euo pipefail
+          if out="$(./mcp-publisher publish 2>&1)"; then
+            echo "$out"; exit 0
+          fi
+          echo "$out"
+          case "$out" in
+            *"cannot publish duplicate version"*)
+              echo "already published at this version — treating as success (re-run)" ;;
+            *) exit 1 ;;
+          esac
