@@ -32,6 +32,8 @@ class Settings:
     # The client IP is read this many entries from the right of X-Forwarded-For: the entry
     # our outermost trusted proxy observed. The leftmost entries are client-supplied.
     trusted_proxy_hops: int = _int("CAREERS_TRUSTED_PROXY_HOPS", 1)
+    # Post last week's funnel counts to the Slack webhook every Monday. "0" turns it off.
+    weekly_digest: bool = os.getenv("CAREERS_WEEKLY_DIGEST", "1") != "0"
 
     def ready(self) -> bool:
         """Whether a submission can be confirmed and posted."""

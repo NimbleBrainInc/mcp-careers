@@ -4,6 +4,8 @@ careers:pending:<token>      an application waiting to be confirmed   (pending T
 careers:email:<sha256>       an email that has posted               (dedupe window)
 careers:day:<YYYY-MM-DD>     posted submissions that UTC day        (2 days)
 careers:ip:<ip>:<hour>       submit calls from one IP that hour     (2 hours)
+careers:week:<week>:<event>  funnel events that ISO week            (120 days)
+careers:digest:<week>        that week's digest has been claimed     (30 days)
 """
 
 import hashlib
@@ -27,11 +29,43 @@ def _day_key(now: datetime) -> str:
     return f"{PREFIX}:day:{now:%Y-%m-%d}"
 
 
+def week_label(now: datetime) -> str:
+    """The ISO week `now` falls in, as `2026-W48`."""
+    year, week, _ = now.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+# The funnel, in order: an agent read the roles, an application waits for confirmation, a
+# person confirmed and it posted.
+EVENTS = ("list_roles", "submitted", "confirmed")
+
+
 class Store:
     def __init__(self, redis: Redis, *, pending_ttl: int, dedupe_days: int) -> None:
         self.redis = redis
         self.pending_ttl = pending_ttl
         self.dedupe_seconds = dedupe_days * 86_400
+
+    # -- the weekly funnel ------------------------------------------------------------
+
+    async def count_event(self, event: str, now: datetime | None = None) -> None:
+        """Count one funnel event in this ISO week."""
+        key = f"{PREFIX}:week:{week_label(now or datetime.now(UTC))}:{event}"
+        count = await self.redis.incr(key)
+        if count == 1:
+            await self.redis.expire(key, 120 * 86_400)
+
+    async def week_counts(self, week: str) -> dict[str, int]:
+        values = await self.redis.mget([f"{PREFIX}:week:{week}:{e}" for e in EVENTS])
+        return {e: int(v or 0) for e, v in zip(EVENTS, values, strict=True)}
+
+    async def claim_digest(self, week: str) -> bool:
+        """Take the right to post `week`'s digest; only the first caller gets it."""
+        return bool(await self.redis.set(f"{PREFIX}:digest:{week}", "1", nx=True, ex=30 * 86_400))
+
+    async def release_digest(self, week: str) -> None:
+        """Give the claim back after a failed post, so the next attempt retries."""
+        await self.redis.delete(f"{PREFIX}:digest:{week}")
 
     # -- the submit tool's checks --------------------------------------------------
 
