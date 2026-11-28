@@ -5,8 +5,10 @@ a confirmation link and passes a Turnstile check, and only then does the applica
 the team's Slack channel. Nothing is stored beyond expiring keys in Redis.
 """
 
+import asyncio
 import logging
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import parse_qs
@@ -27,7 +29,7 @@ from redis.exceptions import RedisError
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
-from mcp_careers import __version__, config, outbound
+from mcp_careers import __version__, config, digest, outbound
 from mcp_careers import roles as careers_config
 from mcp_careers.pages import confirm_page, message_page
 from mcp_careers.roles import Careers, Role
@@ -85,6 +87,14 @@ def get_store() -> Store:
             dedupe_days=s.dedupe_days,
         )
     return _store
+
+
+async def _count(event: str) -> None:
+    """Count a funnel event for the weekly digest. A failure here never fails the tool."""
+    try:
+        await get_store().count_event(event)
+    except RedisError as e:
+        logger.warning("could not count %s: %s", event, e)
 
 
 def set_store(store: Store | None) -> None:
@@ -200,6 +210,7 @@ async def careers_list_roles() -> RolesResult:
     answers, and what an application needs. When no role is open, say so.
     """
     logger.info("event=list_roles")
+    await _count("list_roles")
     return RolesResult(
         about=CAREERS.about,
         roles=[
@@ -316,6 +327,7 @@ async def careers_submit_application(
         raise _store_failure(e) from e
 
     logger.info("event=submitted role=%s", app.role)
+    await _count("submitted")
     minutes = s.pending_ttl_seconds // 60
     return SubmitResult(
         status="awaiting_confirmation",
@@ -433,6 +445,7 @@ async def confirm(request: Request) -> HTMLResponse:
         return _html(message_page("Something went wrong", "Please try again shortly."), 503)
 
     logger.info("event=confirmed role=%s", app.role)
+    await _count("confirmed")
     return _html(
         message_page(
             "Your application is in",
@@ -452,8 +465,30 @@ def build_app():
     Stateless: no MCP session, so every request is self-contained and any replica serves any
     request. With sessions, a follow-up landing on another pod than the one that opened the
     session is refused "Session not found". No tool keeps state between requests.
+
+    Its lifespan also runs the weekly digest loop (`digest.py`) when a Slack webhook is set;
+    every replica runs it, and a claim in Redis lets exactly one post each week.
     """
-    return mcp.http_app(stateless_http=True, json_response=True)
+    app = mcp.http_app(stateless_http=True, json_response=True)
+    inner = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(asgi_app):
+        async with inner(asgi_app):
+            s = config.settings
+            task = None
+            if s.weekly_digest and s.slack_webhook_url:
+                task = asyncio.create_task(
+                    digest.run(get_store, s.slack_webhook_url, outbound.post_to_slack)
+                )
+            try:
+                yield
+            finally:
+                if task:
+                    task.cancel()
+
+    app.router.lifespan_context = lifespan
+    return app
 
 
 app = build_app()

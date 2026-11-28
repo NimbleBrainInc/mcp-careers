@@ -67,6 +67,7 @@ cross the wire run on both protocol eras (`mode="auto"` and `"legacy"`).
 | `CAREERS_DEDUPE_DAYS` | `60` | One application per email in this window. |
 | `CAREERS_PENDING_TTL_SECONDS` | `3600` | How long a confirmation link lasts. |
 | `CAREERS_TRUSTED_PROXY_HOPS` | `1` | X-Forwarded-For entries from the right that name the client. |
+| `CAREERS_WEEKLY_DIGEST` | `1` | `0` stops the Monday post of last week's funnel counts to the Slack webhook. |
 
 Without the Slack webhook and both Turnstile keys, the submit tool refuses with `internal`
 and says to try again later.
